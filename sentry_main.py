@@ -64,9 +64,12 @@ def track_object(camera_capture,
         # perform template matching
         max_val, max_loc = check_image_match(frame, cropped_object_image)
         if max_val < template_matching_threshold:
-            print('No match found')
-            cv2.destroyAllWindows()
-            return False
+            print('No match found, retrying...')
+            if max_val < 0.5:
+                print('No match found, exiting...')
+                cv2.destroyAllWindows()
+                return False
+            continue
             
         # draw a rectangle around the match in the current frame
         cv2.rectangle(frame, max_loc, (max_loc[0] + cropped_object_image.shape[1], max_loc[1] + cropped_object_image.shape[0]), (0, 255, 0), 2)
@@ -80,8 +83,8 @@ def track_object(camera_capture,
 
         # the larger the difference, the faster the servos move
         servo_adjustment_speed = int(abs(difference_x) / 14) + 1
-        if servo_adjustment_speed > 7:
-            servo_adjustment_speed = 7 # limit the speed
+        if servo_adjustment_speed > 10:
+            servo_adjustment_speed = 10 # limit the speed
 
         # if object outside of deadzone, move the servos
         if abs(difference_x) > 10:
@@ -128,10 +131,15 @@ def main():
     
     background_frame = capture_single_frame(camera_capture)
 
-    CONTOUR_THRESHOLD_VALUE = 10.0 # pixel value threshold for contour detection
+    CONTOUR_THRESHOLD_VALUE = 50.0 # pixel value threshold for contour detection
     MIN_AREA = 50 # minimum area of the contour
     MAX_AREA = 1000 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.80 # threshold for template matching
+    TEMPLATE_MATCHING_THRESHOLD = 0.63 # threshold for template matching
+    OBJECT_BUFFER = 3 # number of pixels to add to each side of the contour when cropping the object
+
+    print('-'*30)
+    print('Sentry Camera Armed')
+    print('-'*30)
 
     while True:
 
@@ -148,18 +156,23 @@ def main():
             # get the x, y, width, and height of box around the contour
             x_of_contour, y_of_contour, width_of_contour, height_of_contour = cv2.boundingRect(largest_countour)
 
-            if width_of_contour > 0 and height_of_contour > 0:
-                # if the contour is too close to the edge of the frame, ignore it
-                if x_of_contour < 10 or y_of_contour < 10 or x_of_contour + width_of_contour > 630 or y_of_contour + height_of_contour > 470:
-                    print('Contour too close to edge of frame')
-                    continue
-                captured_object = True
+            # if the contour is too close to the edge of the frame, ignore it
+            if x_of_contour < 10 or y_of_contour < 10 or x_of_contour + width_of_contour > 630 or y_of_contour + height_of_contour > 470:
+                print('Contour too close to edge of frame')
+                continue
+            captured_object = True
 
         # display the frames
         cv2.imshow("Threshold Frame", threshold_frame)
         cv2.imshow("Motion Detection", current_frame)
 
         if captured_object:
+            # add pixels to each side of the contour to get a buffer
+            x_of_contour -= OBJECT_BUFFER
+            y_of_contour -= OBJECT_BUFFER
+            width_of_contour += 2*OBJECT_BUFFER
+            height_of_contour += 2*OBJECT_BUFFER
+
             cropped_object_image = get_cropped_object_image(current_frame, x_of_contour, y_of_contour, width_of_contour, height_of_contour) # crop the object from the current frame
 
             # display the cropped object image at a larger size (debugging)
