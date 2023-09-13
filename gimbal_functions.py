@@ -55,3 +55,26 @@ def move_gimbal_by_difference(gimbal, pan_servo, tilt_servo, difference_x, diffe
         # print('Moving down')
         # move down
         move_servo_by_degrees(gimbal, tilt_servo, -servo_adjustment_speed, tilt_servo_range)
+
+
+def move_pan_servo(gimbal, pan_servo, pan_servo_range, servo_adjustment_speed, difference_x):
+    '''Moves the pan servo by the difference in the x direction.'''
+    if difference_x > 0:
+        # print('Moving left')
+        # move left
+        move_servo_by_degrees(gimbal, pan_servo, servo_adjustment_speed, pan_servo_range)
+    elif difference_x < 0:
+        # print('Moving right')
+        # move right
+        move_servo_by_degrees(gimbal, pan_servo, -servo_adjustment_speed, pan_servo_range)
+
+def move_tilt_servo(gimbal, tilt_servo, tilt_servo_range, servo_adjustment_speed, difference_y):
+    '''Moves the tilt servo by the difference in the y direction.'''
+    if difference_y > 0:
+        # print('Moving up')
+        # move up
+        move_servo_by_degrees(gimbal, tilt_servo, servo_adjustment_speed, tilt_servo_range)
+    elif difference_y < 0:
+        # print('Moving down')
+        # move down
+        move_servo_by_degrees(gimbal, tilt_servo, -servo_adjustment_speed, tilt_servo_range)
