@@ -128,10 +128,10 @@ def main():
     
     background_frame = capture_single_frame(camera_capture)
 
-    CONTOUR_THRESHOLD_VALUE = 60.0 # pixel value threshold for contour detection
-    MIN_AREA = 100 # minimum area of the contour
+    CONTOUR_THRESHOLD_VALUE = 10.0 # pixel value threshold for contour detection
+    MIN_AREA = 50 # minimum area of the contour
     MAX_AREA = 1000 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.60 # threshold for template matching
+    TEMPLATE_MATCHING_THRESHOLD = 0.80 # threshold for template matching
 
     while True:
 
@@ -150,7 +150,7 @@ def main():
 
             if width_of_contour > 0 and height_of_contour > 0:
                 # if the contour is too close to the edge of the frame, ignore it
-                if x_of_contour < 20 or y_of_contour < 20 or x_of_contour + width_of_contour > 620 or y_of_contour + height_of_contour > 460:
+                if x_of_contour < 10 or y_of_contour < 10 or x_of_contour + width_of_contour > 630 or y_of_contour + height_of_contour > 470:
                     print('Contour too close to edge of frame')
                     continue
                 captured_object = True
@@ -163,7 +163,7 @@ def main():
             cropped_object_image = get_cropped_object_image(current_frame, x_of_contour, y_of_contour, width_of_contour, height_of_contour) # crop the object from the current frame
 
             # display the cropped object image at a larger size (debugging)
-            # cv2.imshow("Tracking Object", cv2.resize(cropped_object_image, (640, 480)))
+            cv2.imshow("Tracking Object", cv2.resize(cropped_object_image, (640, 480)))
 
             print('Tracking object')
 

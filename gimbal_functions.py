@@ -68,6 +68,7 @@ def move_pan_servo(gimbal, pan_servo, pan_servo_range, servo_adjustment_speed, d
         # move right
         move_servo_by_degrees(gimbal, pan_servo, -servo_adjustment_speed, pan_servo_range)
 
+
 def move_tilt_servo(gimbal, tilt_servo, tilt_servo_range, servo_adjustment_speed, difference_y):
     '''Moves the tilt servo by the difference in the y direction.'''
     if difference_y > 0:
