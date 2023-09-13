@@ -6,8 +6,13 @@ import time
 import numpy as np
 import cv2
 
+import board
+import busio
+
 from adafruit_servokit import ServoKit
 from gimbal_functions import set_servos_neutral, move_gimbal_by_difference
+from contour_functions import get_contours, get_largest_contour
+
 
 def capture_single_frame(camera_capture):
     '''Captures a single frame from the camera.'''
@@ -16,56 +21,6 @@ def capture_single_frame(camera_capture):
         print("Frame is empty")
         return False
     return frame
-
-
-def get_contours(old_frame, current_frame, threshold_value=40.0):
-    '''Returns the contours, threshold frame, and difference frame.'''
-    old_frame_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
-    current_frame_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
-    
-    old_frame_blurred = cv2.GaussianBlur(old_frame_gray, (21, 21), 0)
-    current_frame_blurred = cv2.GaussianBlur(current_frame_gray, (21, 21), 0)
-    
-    difference = cv2.absdiff(old_frame_blurred, current_frame_blurred)
-    
-    ret, thresh_image = cv2.threshold(difference, threshold_value, 255, cv2.THRESH_BINARY)
-    thresh_image = cv2.dilate(thresh_image, None, iterations=2)
-
-    contours, _ = cv2.findContours(thresh_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    return contours, thresh_image, difference
-
-
-def get_largest_contour(contours, min_area=100, max_area=10000):
-    '''Returns the largest contour.'''
-    largest_contour = None
-    largest_contour_area = 0
-    for contour in contours:
-        if cv2.contourArea(contour) < min_area or cv2.contourArea(contour) > max_area:
-            continue
-
-        if cv2.contourArea(contour) > largest_contour_area:
-            largest_contour = contour
-            largest_contour_area = cv2.contourArea(contour)
-    return largest_contour
-
-
-def combine_contours(contours, user_param_min_area, user_param_max_area):
-    '''Returns the min and max x and y values for the contours.'''
-    min_x, min_y, max_x, max_y = 10000, 10000, 0, 0   
-    for contour in contours:
-        if cv2.contourArea(contour) < 100 or cv2.contourArea(contour) > 1000:
-            continue
-
-        x, y, w, h = cv2.boundingRect(contour)
-        
-        # update min and max x and y based on contour
-        min_x = min(x, min_x)
-        min_y = min(y, min_y)
-        max_x = max(x + w, max_x)
-        max_y = max(y + h, max_y)
-
-    return min_x, min_y, max_x, max_y
 
 
 def draw_bounding_box(frame, x, y, w, h):
@@ -95,15 +50,15 @@ def get_cropped_object_image(frame, x, y, w, h):
     return cropped_object_image
 
 
-def track_object(camera_capture, 
-                 cropped_object_image, 
-                 camera_capture_width, 
-                 camera_capture_height, 
-                 gimbal, 
-                 pan_servo, 
-                 tilt_servo, 
-                 pan_servo_range, 
-                 tilt_servo_range, 
+def track_object(camera_capture,
+                 cropped_object_image,
+                 camera_capture_width,
+                 camera_capture_height,
+                 gimbal,
+                 pan_servo,
+                 tilt_servo,
+                 pan_servo_range,
+                 tilt_servo_range,
                  servo_adjustment_speed=2):
     
     '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the servos. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
@@ -141,9 +96,13 @@ def track_object(camera_capture,
 
 
 def main():
+    '''Main function.'''
+    # The FT232H must be connected to the computer via USB and env variable BLINKA_FT232H must be set to 1
+    # Create an I2C device based on the FT232H object
+    i2c = busio.I2C(board.SCL, board.SDA)
 
     # Create an object to access the ServoKit library
-    gimbal = ServoKit(channels=16) # using PCA9685
+    gimbal = ServoKit(channels=16, i2c=i2c) # using PCA9685
 
     pan_servo = 0 # channel 0
     pan_servo_range = [0, 180]
@@ -153,8 +112,13 @@ def main():
 
     # Create a VideoCapture object
     camera_capture = cv2.VideoCapture(0) # 0 is the default camera via USB
-    camera_capture_width = camera_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-    camera_capture_height = camera_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+    # set the width and height
+    camera_capture_width = camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    camera_capture_height = camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+    # camera_capture_width = camera_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+    # camera_capture_height = camera_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
     # set the servos to the neutral position
     set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
@@ -162,7 +126,7 @@ def main():
     # wait for the servos to move
     time.sleep(1.5)
     
-    original_frame = capture_single_frame(camera_capture)
+    background_frame = capture_single_frame(camera_capture)
 
     THRESHOLD_VALUE = 50.0
     MIN_AREA = 100
@@ -174,35 +138,37 @@ def main():
         # capture another frame
         current_frame = capture_single_frame(camera_capture)
 
-        contours, threshold_frame, difference_frame = get_contours(original_frame, current_frame, threshold_value=THRESHOLD_VALUE)
-        print(f'Found {len(contours)} contours')
+        contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame, threshold_value=THRESHOLD_VALUE)
+        # print(f'Found {len(contours)} contours')
 
-        # display the threshold frame
-        # cv2.imshow("Threshold Frame", threshold_frame)
+        # resize the frame to be half the size
+        current_frame = cv2.resize(current_frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        threshold_frame = cv2.resize(threshold_frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
 
         if len(contours) > 0:
             largest_countour = get_largest_contour(contours, min_area=MIN_AREA, max_area=MAX_AREA) # find the object with the largest contour
             
             x, y, w, h = cv2.boundingRect(largest_countour) # get the x, y, width, and height of the bounding box
 
-            # display the bounding box in the current frame
-            # current_frame = draw_bounding_box(current_frame, x, y, w, h)
+            # add the bounding box to the current frame
+            current_frame = draw_bounding_box(current_frame, x, y, w, h)
 
-            # display the frame
-            # cv2.imshow("Frame", current_frame)
+        # display the frames
+        cv2.imshow("Threshold Frame", threshold_frame)
+        cv2.imshow("Current Frame", current_frame)
 
-            if w > 0 and h > 0:
-                cropped_object_image = get_cropped_object_image(current_frame, x, y, w, h) # crop the object from the current frame
+            # if w > 0 and h > 0:
+                # cropped_object_image = get_cropped_object_image(current_frame, x, y, w, h) # crop the object from the current frame
                 # display the cropped object image
                 # cv2.imshow("Cropped Object Image", cropped_object_image)
-                track_object(camera_capture, cropped_object_image, camera_capture_width, camera_capture_height, gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range, servo_adjustment_speed=SERVO_ADDJUSTMENT_SPEED)
-                print('Finished tracking object, moving to neutral position')
+                # track_object(camera_capture, cropped_object_image, camera_capture_width, camera_capture_height, gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range, servo_adjustment_speed=SERVO_ADDJUSTMENT_SPEED)
+                # print('Finished tracking object, moving to neutral position')
                 
-                set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
-                time.sleep(2)
+                # set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
+                # time.sleep(2)
                 
                 # go back to the beginning of the while loop and capture another frame
-                continue
+                # continue
 
             # else:
             #     print("Error: Invalid dimensions for bounding rectangle: (", x, y, w, h, ")")

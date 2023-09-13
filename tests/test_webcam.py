@@ -6,18 +6,25 @@ import cv2
 # Create a VideoCapture object
 cap = cv2.VideoCapture(0) # 0 is the default camera via USB
 
+# set the width and height
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
 # Check if the webcam is opened correctly
 if not cap.isOpened():
     raise IOError("Cannot open webcam")
-
-# Create a window called "Webcam"
-cv2.namedWindow("Webcam")
 
 # loop until the user presses the q key
 while True:
     # Read the current frame from the webcam
     ret, frame = cap.read()
     # Display the current frame in the window called "Webcam"
+    # cv2.imshow("Webcam", frame)
+
+    # resize the frame to be half the size
+    frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+
+    # display the frame
     cv2.imshow("Webcam", frame)
 
     # Wait for the user to press the q key
