@@ -12,7 +12,7 @@ For ubuntu-box:
 export BLINKA_FT232H='1'
 ```
 ---
-#### Template matching speed test
+## Template matching speed test
 
 **AMD Ryzen 9 7950X 16/32 vs. Nvidia 4090**
 
