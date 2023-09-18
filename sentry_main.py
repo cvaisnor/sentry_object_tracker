@@ -5,6 +5,7 @@ import time
 import cv2
 import board
 import busio
+import numpy as np
 
 from adafruit_servokit import ServoKit
 from gimbal_functions import set_servos_neutral, move_pan_servo, move_tilt_servo
@@ -56,26 +57,43 @@ def track_object(camera_capture,
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
     # video_writer = cv2.VideoWriter(filename='output.avi', fourcc=fourcc, fps=24.0, frameSize=(640, 480))
 
+    # Use a list to store the last # frames
+    all_cropped_objects = [cropped_object_image]
+
     while True:
         # read new frame after cropping the object
         frame = capture_single_frame(camera_capture)
-        # video_writer.write(frame)
 
         # perform template matching
         max_val, max_loc = check_image_match(frame, cropped_object_image)
-        if max_val < template_matching_threshold:
-            print('No match found, retrying...')
-            if max_val < 0.5:
-                print('No match found, exiting...')
-                cv2.destroyAllWindows()
-                return False
-            continue
+        print('max_val: ', max_val)
+
+        # condition to check object is matched or not
+        if max_val > template_matching_threshold:
+            crop_object = get_cropped_object_image(frame, max_loc[0], max_loc[1], cropped_object_image.shape[1], cropped_object_image.shape[0])
+            all_cropped_objects.append(crop_object)
+
+            # remove the oldest frame if more than 5 objects are stored
+            if len(all_cropped_objects) > 2:
+                all_cropped_objects.pop(1)
+
+            # take the average of all object images in the list
+            cropped_object_image = np.average(all_cropped_objects, axis=0).astype(np.uint8)
+        else:
+            print('Object not found, switching to motion detection')
+            # video_writer.release()
+            cv2.destroyAllWindows()
+            return False
             
-        # draw a rectangle around the match in the current frame
-        cv2.rectangle(frame, max_loc, (max_loc[0] + cropped_object_image.shape[1], max_loc[1] + cropped_object_image.shape[0]), (0, 255, 0), 2)
+        # draw a rectangle around the match on a copy of the current frame
+        frame_copy = frame.copy()
+        cv2.rectangle(frame_copy, max_loc, (max_loc[0] + cropped_object_image.shape[1], max_loc[1] + cropped_object_image.shape[0]), (0, 255, 0), 2)
 
         # display the frame
-        cv2.imshow("Now tracking", frame)
+        cv2.imshow("Now tracking", frame_copy)
+
+        # display the new cropped object image (debugging)
+        cv2.imshow("Running Average", cv2.resize(cropped_object_image, (640, 480)))
 
         # calculate the difference between the center of the frame and the center of the match
         difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
@@ -99,6 +117,7 @@ def track_object(camera_capture,
             # video_writer.release()
             cv2.destroyAllWindows()
             break
+
 
 
 def main():
@@ -131,10 +150,10 @@ def main():
     
     background_frame = capture_single_frame(camera_capture)
 
-    CONTOUR_THRESHOLD_VALUE = 50.0 # pixel value threshold for contour detection
-    MIN_AREA = 50 # minimum area of the contour
-    MAX_AREA = 1000 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.63 # threshold for template matching
+    CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
+    MIN_AREA = 10 # minimum area of the contour
+    MAX_AREA = 500 # maximum area of the contour
+    TEMPLATE_MATCHING_THRESHOLD = 0.60 # threshold for template matching
     OBJECT_BUFFER = 3 # number of pixels to add to each side of the contour when cropping the object
 
     print('-'*30)
@@ -163,7 +182,7 @@ def main():
             captured_object = True
 
         # display the frames
-        cv2.imshow("Threshold Frame", threshold_frame)
+        # cv2.imshow("Threshold Frame", threshold_frame)
         cv2.imshow("Motion Detection", current_frame)
 
         if captured_object:
@@ -176,7 +195,7 @@ def main():
             cropped_object_image = get_cropped_object_image(current_frame, x_of_contour, y_of_contour, width_of_contour, height_of_contour) # crop the object from the current frame
 
             # display the cropped object image at a larger size (debugging)
-            cv2.imshow("Tracking Object", cv2.resize(cropped_object_image, (640, 480)))
+            cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
 
             print('Tracking object')
 
