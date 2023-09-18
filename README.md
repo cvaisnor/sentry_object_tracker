@@ -18,6 +18,7 @@ export BLINKA_FT232H='1'
 **AMD Ryzen 9 7950X 16/32 vs. Nvidia 4090**
 
 Full: 6000 x 4000 pixels
+
 Crop: 151 x 144 pixels
 
 ```
