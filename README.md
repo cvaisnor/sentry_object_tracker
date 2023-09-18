@@ -3,20 +3,27 @@
 
 Project Contents:
 - archive: old code
-- tests: tests for webcam, servo, motion detection, and FT232H/PCA9685 controllers
+- tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers
 
 
 For ubuntu-box:
 ```bash
 
 export BLINKA_FT232H='1'
+```
+---
+#### Template matching speed test
+
+**AMD Ryzen 9 7950X 16/32 vs. Nvidia 4090**
+
+Full: 6000 x 4000 pixels
+Crop: 151 x 144 pixels
 
 ```
+python template_matching_images/cpu_vs_gpu.py
+```
 
-AMD Ryzen 9 7950X 16/32 vs. Nvidia 4090
-```
-python cpu_vs_gpu.py
-```
+OUTPUT:
 ```
 OpenCV (CPU):
 Location: (3180, 3174)

@@ -8,7 +8,7 @@ import busio
 import numpy as np
 
 from adafruit_servokit import ServoKit
-from gimbal_functions import set_servos_neutral, move_pan_servo, move_tilt_servo
+from servo_gimbal_functions import set_servos_neutral, move_pan_servo, move_tilt_servo
 from contour_functions import get_contours, get_largest_contour
 
 
