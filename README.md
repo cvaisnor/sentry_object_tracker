@@ -3,16 +3,17 @@
 
 Project Contents:
 - archive: old code
+- process_timing: timing tests for various image processing methods
 - tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers
+- tuning: tuning scripts for motion detection
 
 
-For ubuntu-box:
+Needed if using FT232H/PCA9685 controller:
 ```bash
-
 export BLINKA_FT232H='1'
 ```
 ---
-## Template matching speed test
+## Template Matching Speed Test
 
 **AMD Ryzen 9 7950X 16/32 vs. Nvidia 4090**
 
@@ -20,7 +21,7 @@ Full: 6000 x 4000 pixels
 Crop: 151 x 144 pixels
 
 ```
-python template_matching_images/cpu_vs_gpu.py
+python process_timing/cpu_vs_gpu.py
 ```
 
 OUTPUT:
