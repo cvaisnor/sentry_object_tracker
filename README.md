@@ -1,4 +1,4 @@
-# sentry_object_tracker
+# Sentry Camera Object Tracker
 
 Project Contents:
 - archive: old code
@@ -6,6 +6,8 @@ Project Contents:
 - tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers
 - tuning: tuning scripts for motion detection
 
+TODO:
+- requirements.txt
 
 Needed if using FT232H/PCA9685 controller:
 ```bash
