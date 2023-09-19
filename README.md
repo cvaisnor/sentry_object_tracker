@@ -7,13 +7,20 @@ Project Contents:
 - tuning: tuning scripts for motion detection
 
 TODO:
+- Add functionality for stepper motor gimbal with Arduino
 - requirements.txt
 
 Needed if using FT232H/PCA9685 controller:
 ```bash
 export BLINKA_FT232H='1'
 ```
-![Screenshot](/images/sentry_object_tracker.png)
+Screen View:
+
+<img src="images/sentry_object_tracker.png" width="50%" height="50%">
+
+Current Servo Gimbal Setup:
+
+<img src="images/servo_setup.jpg" width="50%" height="50%">
 
 ---
 ## Template Matching Speed Test
