@@ -1,6 +1,5 @@
 # sentry_object_tracker
 
-
 Project Contents:
 - archive: old code
 - process_timing: timing tests for various image processing methods
@@ -12,6 +11,8 @@ Needed if using FT232H/PCA9685 controller:
 ```bash
 export BLINKA_FT232H='1'
 ```
+![Screenshot](/images/sentry_object_tracker.png)
+
 ---
 ## Template Matching Speed Test
 
