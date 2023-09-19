@@ -4,7 +4,7 @@ Project Contents:
 - archive: old code
 - process_timing: timing tests for various image processing methods
 - tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers
-- tuning: tuning scripts for motion detection
+- configs: tuning scripts for motion detection
 
 TODO:
 - Add functionality for stepper motor gimbal with Arduino
