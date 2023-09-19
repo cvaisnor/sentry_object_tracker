@@ -66,7 +66,7 @@ def track_object(camera_capture,
 
         # perform template matching
         max_val, max_loc = check_image_match(frame, cropped_object_image)
-        print('max_val: ', max_val)
+        # print('max_val: ', max_val)
 
         # condition to check object is matched or not
         if max_val > template_matching_threshold:
@@ -80,7 +80,6 @@ def track_object(camera_capture,
             # take the average of all object images in the list
             cropped_object_image = np.average(all_cropped_objects, axis=0).astype(np.uint8)
         else:
-            print('Object not found, switching to motion detection')
             # video_writer.release()
             cv2.destroyAllWindows()
             return False
@@ -153,7 +152,7 @@ def main():
     CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
     MIN_AREA = 10 # minimum area of the contour
     MAX_AREA = 500 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.60 # threshold for template matching
+    TEMPLATE_MATCHING_THRESHOLD = 0.50 # threshold for template matching
     OBJECT_BUFFER = 3 # number of pixels to add to each side of the contour when cropping the object
 
     print('-'*30)
