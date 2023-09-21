@@ -16,8 +16,8 @@ def main():
     camera_capture = cv2.VideoCapture(0) # 0 is the default camera via USB
 
     # # set the width and height
-    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     # wait for the Arduino to initialize
     time.sleep(3)
@@ -32,8 +32,8 @@ def main():
     MIN_AREA = 50 # minimum area of the contour
     MAX_AREA = 500 # maximum area of the contour
     TEMPLATE_MATCHING_THRESHOLD = 0.70 # threshold for template matching
-    OBJECT_BUFFER = 3 # number of pixels to add to each side of the contour when cropping the object
-    FRAMES_TO_AVERAGE = 4 # number of frames to average when tracking the object
+    OBJECT_BUFFER = 1 # number of pixels to add to each side of the contour when cropping the object
+    FRAMES_TO_AVERAGE = 2 # number of frames to average when tracking the object
 
     number_of_objects = 0 # number of objects detected
     while True:
