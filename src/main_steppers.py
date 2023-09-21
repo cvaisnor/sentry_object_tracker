@@ -16,8 +16,8 @@ def main():
     camera_capture = cv2.VideoCapture(0) # 0 is the default camera via USB
 
     # # set the width and height
-    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     # wait for the Arduino to initialize
     time.sleep(3)
@@ -31,9 +31,9 @@ def main():
     CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
     MIN_AREA = 50 # minimum area of the contour
     MAX_AREA = 500 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.60 # threshold for template matching
+    TEMPLATE_MATCHING_THRESHOLD = 0.70 # threshold for template matching
     OBJECT_BUFFER = 3 # number of pixels to add to each side of the contour when cropping the object
-    FRAMES_TO_AVERAGE = 2 # number of frames to average when tracking the object
+    FRAMES_TO_AVERAGE = 4 # number of frames to average when tracking the object
 
     number_of_objects = 0 # number of objects detected
     while True:
@@ -80,7 +80,7 @@ def main():
             cv2.imwrite(filename, cropped_object_image)
 
             # display the cropped object image at a larger size (debugging)
-            cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
+            # cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
 
             print('Tracking object')
 
