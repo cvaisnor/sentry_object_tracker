@@ -80,7 +80,7 @@ def main():
             cv2.imwrite(filename, cropped_object_image)
 
             # display the cropped object image at a larger size (debugging)
-            # cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
+            cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
 
             print('Tracking object')
 
@@ -89,10 +89,6 @@ def main():
                                 cropped_object_image,
                                 template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
                                 frames_to_average=FRAMES_TO_AVERAGE)
-            # track_object_steppers_pytorch(camera_capture,
-            #         cropped_object_image,
-            #         template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
-            #         frames_to_average=FRAMES_TO_AVERAGE)
 
             print('Finished tracking object')
             print()
