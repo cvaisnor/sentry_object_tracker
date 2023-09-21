@@ -4,7 +4,8 @@ Project Contents:
 - archive: old code
 - images: images for README.md and PyTorch timing test
 - src: main functions (main_steppers.py)
-- tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers, cpu vs gpu speed
+- stepper_serial_control: Arduino code for stepper motor control
+- tests: for webcam, servo, motion detection, FT232H/PCA9685 control boards, cpu vs gpu comparison
 
 TODO:
 - Measure the time difference between check_image_match and check_image_match_local
@@ -21,9 +22,13 @@ Screen View:
 
 <img src="images/sentry_object_tracker.png" width="50%" height="50%">
 
-Old Servo Gimbal Setup:
+**v1**:
 
 <img src="images/servo_setup.jpg" width="50%" height="50%">
+
+**v2**:
+
+<img src="images/v2.jpg" width="50%" height="50%">
 
 ---
 ## Template Matching Speed Test
