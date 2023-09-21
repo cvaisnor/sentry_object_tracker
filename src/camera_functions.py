@@ -33,53 +33,33 @@ def check_image_match(full_image_to_search, cropped_object_image, match_method=c
     return max_val, max_loc
 
 
-def check_image_match_local(full_image_to_search, cropped_object_image, max_loc, match_method=cv2.TM_CCOEFF_NORMED):
+def check_image_match_local(full_image_to_search, cropped_object_image, last_loc=(0,0), obj_padding=100, match_method=cv2.TM_CCOEFF_NORMED):
     """
     Look for small_image in full_image and return best and worst results
     For More Info See
     http://docs.opencv.org/3.1.0/d4/dc6/tutorial_py_template_matching.html
     """
-    # returns a grayscale image, where each pixel denotes how much does the neighbourhood of that pixel match with template
+    # Define the x and y starting and ending coordinates of the ROI
+    obj_size = cropped_object_image.shape
+    
+    y_start = max(0, last_loc[1] - obj_padding)
+    y_end = min(full_image_to_search.shape[0], last_loc[1] + obj_size[0] + obj_padding)
+    x_start = max(0, last_loc[0] - obj_padding)
+    x_end = min(full_image_to_search.shape[1], last_loc[0] + obj_size[1] + obj_padding)
 
-    # TODO: get this working
-    # limit the search area to a smaller area around the previous match, to speed up the search
-    # x = max_loc[0]
-    # y = max_loc[1]
-    # w = cropped_object_image.shape[1]
-    # h = cropped_object_image.shape[0]
+    # Extract ROI from the image
+    roi = full_image_to_search[y_start:y_end, x_start:x_end]
+    
+    # Perform template matching on the ROI
+    result = cv2.matchTemplate(roi, cropped_object_image, match_method)
 
-    # object_center_x = x + w / 2
-    # object_center_y = y + h / 2
+    # Find the maximum correlation location
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+    
+    # Convert max_loc to coordinates relating to the full image
+    max_loc = (max_loc[0] + x_start, max_loc[1] + y_start)
 
-    # # to find the next match
-    # y_lower = int(object_center_y - 150)
-    # y_upper = int(object_center_y + 150)
-    # x_lower = int(object_center_x - 150)
-    # x_upper = int(object_center_x + 150)
-
-    # # ensure the search area is still valid
-    # if y_lower < 0:
-    #     y_lower = 0
-    # if y_upper > full_image_to_search.shape[0]:
-    #     y_upper = full_image_to_search.shape[0]
-    # if x_lower < 0:
-    #     x_lower = 0
-    # if x_upper > full_image_to_search.shape[1]:
-    #     x_upper = full_image_to_search.shape[1]
-
-    # full_image_to_search = full_image_to_search[y_lower:y_upper, x_lower:x_upper]
-
-
-    # print('full_image_to_search.shape: ', full_image_to_search.shape)
-    # print('cropped_object_image.shape: ', cropped_object_image.shape)
-
-    result = cv2.matchTemplate(full_image_to_search, cropped_object_image, match_method)
-
-    # Process result data and return probability values and
-    # xy Location of best and worst image match
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
     return max_val, max_loc
-
 
 def get_contours(old_frame, current_frame, threshold_value=40.0):
     '''Returns the contours, threshold frame, and difference frame.'''
