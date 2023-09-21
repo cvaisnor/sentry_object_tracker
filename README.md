@@ -2,12 +2,15 @@
 
 Project Contents:
 - archive: old code
-- process_timing: timing tests for various image processing methods
-- tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers
-- configs: tuning scripts for motion detection
+- images: images for README.md and PyTorch timing test
+- src: main functions (main_steppers.py)
+- tests: for webcam, servo, motion detection, and FT232H/PCA9685 controllers, cpu vs gpu speed
 
 TODO:
-- Add functionality for stepper motor gimbal with Arduino
+- Measure the time difference between check_image_match and check_image_match_local
+- Work on a PyTorch version of check_image_match
+- allow speed and steps to be configured by the distance of the object from the center of the frame
+- attach shorting pins to enable smaller steps
 - requirements.txt
 
 Needed if using FT232H/PCA9685 controller:
@@ -18,7 +21,7 @@ Screen View:
 
 <img src="images/sentry_object_tracker.png" width="50%" height="50%">
 
-Current Servo Gimbal Setup:
+Old Servo Gimbal Setup:
 
 <img src="images/servo_setup.jpg" width="50%" height="50%">
 
