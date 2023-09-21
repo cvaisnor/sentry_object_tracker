@@ -147,7 +147,7 @@ def track_object_steppers(camera_capture,
         difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
         difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
-        speed = 1500 # microseconds per step (higher = slower)
+        speed = 500 # microseconds per step (higher = slower)
         steps = 2 # number of steps
         center_threshold = 20 # number of pixels away from center
 
