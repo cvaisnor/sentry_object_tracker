@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 
 from camera_functions import get_cropped_object_image, check_image_match, capture_single_frame, check_image_match_local, template_matching_pytorch
-from stepper_gimbal_functions import move_pan_axis, move_tilt_axis
+# from stepper_gimbal_functions import move_pan_axis, move_tilt_axis
+from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
 
 
 def track_object_steppers(camera_capture,
@@ -71,23 +72,36 @@ def track_object_steppers(camera_capture,
         difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
         difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
-        speed = 500 # microseconds per step (higher = slower)
-        steps = 1 # number of steps
+        # speed = 500 # microseconds per step (higher = slower)
+        # steps = 1 # number of steps
         center_threshold = 100 # number of pixels away from center
+
+        pan_state = MotorState()
+        tilt_state = MotorState()
 
         # if object outside of deadzone, move the steppers
         if abs(difference_x) > center_threshold:
+            pan_state.speed = MotorSpeed.Speed3
+
             if difference_x > 0:
-                move_pan_axis('left', speed, steps)
+                pan_state.direction = MotorDirection.Left
+                # move_pan_axis('left', speed, steps)
             else:
-                move_pan_axis('right', speed, steps)
+                pan_state.direction = MotorDirection.Left
+                # move_pan_axis('right', speed, steps)
 
         if abs(difference_y) > center_threshold:
+            tilt_state.speed = MotorSpeed.Speed3
+
             if difference_y > 0:
-                move_tilt_axis('up', speed, steps)
+                tile_state.direction = MotorDirection.Up
+                # move_tilt_axis('up', speed, steps)
             else:
-                move_tilt_axis('down', speed, steps)
-        
+                tile_state.direction = MotorDirection.Down
+                # move_tilt_axis('down', speed, steps)
+
+        set_gimbal_state(pan = pan_state, tilt = tilt_state)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
             camera_capture.release()
