@@ -7,7 +7,7 @@ import board
 import busio
 
 from adafruit_servokit import ServoKit
-from servo_gimbal_functions import set_servos_neutral
+from archive.servo_gimbal_functions import set_servos_neutral
 from camera_functions import capture_single_frame, get_cropped_object_image, get_contours, get_largest_contour
 from tracking_functions import track_object_servos
 

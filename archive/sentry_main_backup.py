@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from adafruit_servokit import ServoKit
 import time
-from src.servo_gimbal_functions import set_servos_neutral, move_gimbal_by_difference
+from archive.servo_gimbal_functions import set_servos_neutral, move_gimbal_by_difference
 
 
 def capture_single_frame(camera_capture):
