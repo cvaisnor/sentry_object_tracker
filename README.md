@@ -7,12 +7,7 @@ Project Contents:
 - stepper_serial_control: Arduino code for stepper motor control
 - tests: for webcam, servo, motion detection, FT232H/PCA9685 control boards, cpu vs gpu comparison
 
-TODO:
-- Measure the time difference between check_image_match and check_image_match_local
-- Work on a PyTorch version of check_image_match
-- allow speed and steps to be configured by the distance of the object from the center of the frame
-- attach shorting pins to enable smaller steps
-- requirements.txt
+
 
 Needed if using FT232H/PCA9685 controller:
 ```bash
