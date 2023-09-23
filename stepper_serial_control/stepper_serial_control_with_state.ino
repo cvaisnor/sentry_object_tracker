@@ -36,13 +36,16 @@ public:
   };
 
   bool operator==(MotorSpeed rhs) {
-    m_speed == rhs.m_speed;
+      return m_speed == rhs.m_speed;
   };
   bool operator!=(MotorSpeed rhs) {
-    m_speed != rhs.m_speed;
+      return m_speed != rhs.m_speed;
+  };
+  bool operator<(MotorSpeed rhs) {
+      return m_speed < rhs.m_speed;
   };
   bool operator>(MotorSpeed rhs) {
-    m_speed > rhs.m_speed;
+      return m_speed > rhs.m_speed;
   };
 
   int getDelay() {
@@ -148,8 +151,8 @@ void loop() {
     lastCommandRead = millis();
   }
 
-  // if it's been more than 1 second, then turn off the motors as a safety measure
-  if (millis() - lastCommandRead > 1000) {
+  // if it's been more than 0.25 second, then turn off the motors as a safety measure
+  if (millis() - lastCommandRead > 100) {
     MOTORS_STATE = MotorsState();
   }
 
