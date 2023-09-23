@@ -1,16 +1,19 @@
 import cv2
 import numpy as np
+import time
 
-from camera_functions import get_cropped_object_image, check_image_match, capture_single_frame, check_image_match_local, template_matching_pytorch
-from stepper_gimbal_functions import move_pan_axis, move_tilt_axis
+from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
+from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
 
 
 def track_object_steppers(camera_capture,
                         cropped_object_image,
                         template_matching_threshold=0.70,
-                        frames_to_average=3):
+                        frames_to_average=3,
+                        number_of_objects=0,
+                        gimbal_movement=False):
     
-    '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the servos. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
+    '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the stepper motors. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
 
     # create a video writer object for recording the video
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -25,7 +28,12 @@ def track_object_steppers(camera_capture,
 
     while True:
         # read new frame after cropping the object
-        frame = capture_single_frame(camera_capture)
+        ret, frame = camera_capture.read()
+        if ret is False:
+            print('Error reading frame')
+            continue
+
+        # print(f'Frame capture time: {end - start}')
 
         # perform template matching
         if first_search:
@@ -61,116 +69,72 @@ def track_object_steppers(camera_capture,
         frame_copy = frame.copy()
         cv2.rectangle(frame_copy, max_loc, (max_loc[0] + cropped_object_image.shape[1], max_loc[1] + cropped_object_image.shape[0]), (0, 255, 0), 2)
 
-        # display the frame
+        # display the frame with the rectangle around the match, add text = number of objects detected
+        cv2.putText(frame_copy, f'Object #{number_of_objects}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imshow("Now tracking", frame_copy)
 
         # display the new cropped object image (debugging)
         # cv2.imshow("Running Average", cv2.resize(cropped_object_image, (640, 480)))
 
-        # calculate the difference between the center of the frame and the center of the match
-        difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
-        difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
+        if gimbal_movement:
+            # calculate the difference between the center of the frame and the center of the match
+            difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
+            difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
-        speed = 500 # microseconds per step (higher = slower)
-        steps = 1 # number of steps
-        center_threshold = 100 # number of pixels away from center
+            center_threshold = 80 # number of pixels away from center
 
-        # if object outside of deadzone, move the steppers
-        if abs(difference_x) > center_threshold:
-            if difference_x > 0:
-                move_pan_axis('left', speed, steps)
-            else:
-                move_pan_axis('right', speed, steps)
+            pan_state = MotorState()
+            tilt_state = MotorState()
 
-        if abs(difference_y) > center_threshold:
-            if difference_y > 0:
-                move_tilt_axis('up', speed, steps)
-            else:
-                move_tilt_axis('down', speed, steps)
-        
+            # case Speed1: return 2000;
+            # case Speed2: return 1500;
+            # case Speed3: return 1000;
+            # case Speed4: return 500;
+            # case Speed5: return 375;
+            # case Speed6: return 250;
+            # case Speed7: return 175;
+
+            # if object outside of deadzone, move the steppers
+            if abs(difference_x) > center_threshold:
+                # pan_state.speed = MotorSpeed.Speed1
+
+                if difference_x > 0:
+                    print('Moving left')
+                    pan_state.direction = MotorDirection.Left
+                    # move_pan_axis('left', speed, steps)
+                else:
+                    print('Moving right')
+                    pan_state.direction = MotorDirection.Right
+                    # move_pan_axis('right', speed, steps)
+
+            if abs(difference_y) > center_threshold:
+                # tilt_state.speed = MotorSpeed.Speed1
+
+                if difference_y > 0:
+                    print('Moving up')
+                    tilt_state.direction = MotorDirection.Up
+                    # move_tilt_axis('up', speed, steps)
+                else:
+                    print('Moving down')
+                    tilt_state.direction = MotorDirection.Down
+                    # move_tilt_axis('down', speed, steps)
+
+            # if object inside of deadzone, stop the steppers
+            if abs(difference_x) < center_threshold:
+                print('Object centered horizontally')
+                pan_state.speed = MotorSpeed.Off
+                pan_state.direction = MotorDirection.Zero
+
+            if abs(difference_y) < center_threshold:
+                print('Object centered vertically')
+                tilt_state.speed = MotorSpeed.Off
+                tilt_state.direction = MotorDirection.Zero
+            
+            set_gimbal_state(pan = pan_state, tilt = tilt_state)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
             camera_capture.release()
             # video_writer.release()
             cv2.destroyAllWindows()
             return False
-
-
-def track_object_steppers_pytorch(camera_capture,
-                        cropped_object_image,
-                        template_matching_threshold=0.70,
-                        frames_to_average=3):
-    
-    '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the servos. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
-
-    # create a video writer object for recording the video
-    # fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    # video_writer = cv2.VideoWriter(filename='output.avi', fourcc=fourcc, fps=24.0, frameSize=(640, 480))
-
-    # Use a list to store the last # frames
-    all_cropped_objects = [cropped_object_image]
-
-    while True:
-        # read new frame after cropping the object
-        frame = capture_single_frame(camera_capture)
-
-        # perform template matching
-        y, x = template_matching_pytorch(frame, cropped_object_image) # this is returned at (y, x) instead of (x, y)
-
-        print('x: ', x)
-        print('y: ', y)
-        print()
-
-        # condition to check object is matched or not
-        # if max_val > template_matching_threshold:
-        #     crop_object = get_cropped_object_image(frame, max_loc[0], max_loc[1], cropped_object_image.shape[1], cropped_object_image.shape[0])
-        #     all_cropped_objects.append(crop_object)
-
-        #     # remove the oldest frame if more than _ objects are stored
-        #     if len(all_cropped_objects) > frames_to_average:
-        #         all_cropped_objects.pop(1)
-
-        #     # take the average of all object images in the list
-        #     cropped_object_image = np.average(all_cropped_objects, axis=0).astype(np.uint8)
-        # else:
-        #     # video_writer.release()
-        #     cv2.destroyAllWindows()
-        #     return False
-            
-        # draw a rectangle around the match on a copy of the current frame
-        frame_copy = frame.copy()
-        # cv2.rectangle(frame_copy, max_loc, (x + cropped_object_image.shape[0], y + cropped_object_image.shape[1]), (0, 255, 0), 2)
-
-        # display the frame
-        cv2.imshow("Now tracking", frame_copy)
-
-        # display the new cropped object image (debugging)
-        # cv2.imshow("Running Average", cv2.resize(cropped_object_image, (640, 480)))
-
-        # calculate the difference between the center of the frame and the center of the match
-        # difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
-        # difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
-
-        # speed = 1500 # microseconds per step (higher = slower)
-        # steps = 2 # number of steps
-        # center_threshold = 20 # number of pixels away from center
-
-        # # if object outside of deadzone, move the steppers
-        # if abs(difference_x) > center_threshold:
-        #     if difference_x > 0:
-        #         move_pan_axis('left', speed, steps)
-        #     else:
-        #         move_pan_axis('right', speed, steps)
-
-        # if abs(difference_y) > center_threshold:
-        #     if difference_y > 0:
-        #         move_tilt_axis('up', speed, steps)
-        #     else:
-        #         move_tilt_axis('down', speed, steps)
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            # cleanup
-            camera_capture.release()
-            # video_writer.release()
-            cv2.destroyAllWindows()
-            break
