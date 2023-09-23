@@ -5,7 +5,7 @@ import time
 import cv2
 
 from gopro_webcam import GoProWebcamPlayer
-from camera_functions import capture_single_frame, get_cropped_object_image, get_contours, get_largest_contour
+from camera_functions import get_cropped_object_image, get_contours, get_largest_contour
 from tracking_functions import track_object_steppers
 
 
@@ -20,7 +20,17 @@ def main():
 
     # https://gopro.github.io/OpenGoPro/python_sdk/api.html#open_gopro.api.params.WebcamFOV
 
-    gopro.webcam.start(gopro.port, resolution=12, fov=0)
+    # Resolutions:
+    # 1080p: 12
+    # 720p: 7
+
+    # FOV:
+    # SuperView: 3
+    # Wide: 0
+    # Linear: 4
+    # Narrow: 2
+
+    gopro.webcam.start(gopro.port, resolution=7, fov=0)
 
     gopro.player.url = GoProWebcamPlayer.STREAM_URL.format(port=gopro.port)
 
@@ -35,14 +45,15 @@ def main():
     print('Sentry Camera Armed')
     print('-'*30)
     
-    background_frame = capture_single_frame(camera_capture)
+    ret, background_frame = camera_capture.read()
 
-    CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
+    CONTOUR_THRESHOLD_VALUE = 70.0 # pixel value threshold for contour detection
     MIN_AREA = 10 # minimum area of the contour
-    MAX_AREA = 500 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.80 # threshold for template matching
-    OBJECT_BUFFER = 4 # number of pixels to add to each side of the contour when cropping the object
-    FRAMES_TO_AVERAGE = 0 # number of frames to average when tracking the object
+    MAX_AREA = 100 # maximum area of the contour
+    TEMPLATE_MATCHING_THRESHOLD = 0.90 # threshold for template matching
+    OBJECT_BUFFER = 5 # number of pixels to add to each side of the contour when cropping the object
+    FRAMES_TO_AVERAGE = 1 # number of frames to average when tracking the object
+    GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
 
     number_of_objects = 0 # number of objects detected
     while True:
@@ -50,7 +61,10 @@ def main():
         captured_object = False
 
         # capture another frame
-        current_frame = capture_single_frame(camera_capture)
+        ret, current_frame = camera_capture.read()
+        if ret is False:
+            print('Error reading frame')
+            continue
 
         contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame, threshold_value=CONTOUR_THRESHOLD_VALUE)
 
@@ -61,10 +75,11 @@ def main():
             x_of_contour, y_of_contour, width_of_contour, height_of_contour = cv2.boundingRect(largest_countour)
 
             # if the contour is too close to the edge of the frame, ignore it
-            if x_of_contour < 5 or y_of_contour < 5:
+            if x_of_contour < 3 or y_of_contour < 3:
                 print('Contour too small')
-                if x_of_contour + width_of_contour > 1920 or y_of_contour + height_of_contour > 1080:
-                    print('Contour too close to edge of frame')
+                continue
+            if x_of_contour + width_of_contour > 1920 or y_of_contour + height_of_contour > 1080:
+                print('Contour too close to edge of frame')
                 continue
             captured_object = True
             number_of_objects += 1
@@ -89,28 +104,32 @@ def main():
             cv2.imwrite(filename, cropped_object_image)
 
             # display the cropped object image at a larger size (debugging)
-            # cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
+            cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
 
             print('Tracking object')
+
 
             # switch to tracking object
             switch_to_motion_detection = track_object_steppers(camera_capture,
                                 cropped_object_image,
                                 template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
-                                frames_to_average=FRAMES_TO_AVERAGE)
+                                frames_to_average=FRAMES_TO_AVERAGE,
+                                number_of_objects=number_of_objects,
+                                gimbal_movement=GIMBAL_MOVEMENT)
                 
             if switch_to_motion_detection:
                 print('Finished tracking object')
                 print()
 
                 # capture a new background frame
-                background_frame = capture_single_frame(camera_capture)
+                ret, background_frame = camera_capture.read()
                 continue
 
         if (captured_object and not switch_to_motion_detection) or cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
             camera_capture.release()
             cv2.destroyAllWindows()
+            print('Closing GoPro')
             gopro.close()
             break
 
