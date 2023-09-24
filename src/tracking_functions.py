@@ -60,7 +60,7 @@ def track_object_steppers(camera_capture,
             # first_search = True # change to True to search the entire frame
             search_retry_count += 1 # increment the search retry count
 
-        if search_retry_count > 3: # if the object is not found after 3 retries, stop searching
+        if search_retry_count > 6: # if the object is not found after 3 retries, stop searching
             # video_writer.release()
             print('Object not found after 3 retries')
             cv2.destroyAllWindows()
