@@ -14,9 +14,9 @@ def main():
     # arduino device is set in stepper_gimbal_functions.py
 
     # https://github.com/gopro/OpenGoPro/blob/main/demos/python/multi_webcam/multi_webcam/webcam.py
-    gopro = GoProWebcamPlayer(serial='646')
+    # gopro = GoProWebcamPlayer(serial='646')
 
-    gopro.open()
+    # gopro.open()
 
     # https://gopro.github.io/OpenGoPro/python_sdk/api.html#open_gopro.api.params.WebcamFOV
 
@@ -30,13 +30,21 @@ def main():
     # Linear: 4
     # Narrow: 2
 
-    gopro.webcam.start(gopro.port, resolution=7, fov=0)
+    # gopro.webcam.start(gopro.port, resolution=7, fov=0)
 
-    gopro.player.url = GoProWebcamPlayer.STREAM_URL.format(port=gopro.port)
+    # gopro.player.url = GoProWebcamPlayer.STREAM_URL.format(port=gopro.port)
 
-    camera_capture = cv2.VideoCapture(gopro.player.url + "?overrun_nonfatal=1&fifo_size=500000", cv2.CAP_FFMPEG)
+    # camera_capture = cv2.VideoCapture(gopro.player.url + "?overrun_nonfatal=1&fifo_size=500000", cv2.CAP_FFMPEG)
 
-    camera_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    # camera_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    camera_capture = cv2.VideoCapture(0)
+
+    WIDTH = 1280
+    HEIGHT = 720
+
+    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
 
     # wait for the Arduino to initialize
     time.sleep(3)
@@ -49,10 +57,10 @@ def main():
 
     CONTOUR_THRESHOLD_VALUE = 70.0 # pixel value threshold for contour detection
     MIN_AREA = 10 # minimum area of the contour
-    MAX_AREA = 100 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.90 # threshold for template matching
-    OBJECT_BUFFER = 5 # number of pixels to add to each side of the contour when cropping the object
-    FRAMES_TO_AVERAGE = 1 # number of frames to average when tracking the object
+    MAX_AREA = 1000 # maximum area of the contour
+    TEMPLATE_MATCHING_THRESHOLD = 0.80 # threshold for template matching
+    OBJECT_BUFFER = 2 # number of pixels to add to each side of the contour when cropping the object
+    FRAMES_TO_AVERAGE = 4 # number of frames to average when tracking the object
     GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
 
     number_of_objects = 0 # number of objects detected
@@ -68,17 +76,22 @@ def main():
 
         contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame, threshold_value=CONTOUR_THRESHOLD_VALUE)
 
+        current_frame_copy = current_frame.copy()
+
         if len(contours) > 0:
             largest_countour = get_largest_contour(contours, min_area=MIN_AREA, max_area=MAX_AREA) # find the object with the largest contour
             
+            if largest_countour is None:
+                print('No contours found')
+                continue
+
             # get the x, y, width, and height of box around the contour
             x_of_contour, y_of_contour, width_of_contour, height_of_contour = cv2.boundingRect(largest_countour)
 
-            # if the contour is too close to the edge of the frame, ignore it
-            if x_of_contour < 3 or y_of_contour < 3:
-                print('Contour too small')
-                continue
-            if x_of_contour + width_of_contour > 1920 or y_of_contour + height_of_contour > 1080:
+            # draw a box around the contour
+            cv2.rectangle(current_frame_copy, (x_of_contour, y_of_contour), (x_of_contour + width_of_contour, y_of_contour + height_of_contour), (0, 255, 0), 2)
+
+            if x_of_contour + width_of_contour > WIDTH or y_of_contour + height_of_contour > HEIGHT: # if the contour is too close to the edge of the frame, ignore it
                 print('Contour too close to edge of frame')
                 continue
             captured_object = True
@@ -86,7 +99,7 @@ def main():
 
         # display the frames
         # cv2.imshow("Threshold Frame", threshold_frame)
-        cv2.imshow("Background View", current_frame)
+        cv2.imshow("Background View", current_frame_copy)
 
         if captured_object:
             # add pixels to each side of the contour to get a buffer
@@ -108,7 +121,6 @@ def main():
 
             print('Tracking object')
 
-
             # switch to tracking object
             switch_to_motion_detection = track_object_steppers(camera_capture,
                                 cropped_object_image,
@@ -129,8 +141,8 @@ def main():
             # cleanup
             camera_capture.release()
             cv2.destroyAllWindows()
-            print('Closing GoPro')
-            gopro.close()
+            print('Closing Program')
+            # gopro.close()
             break
 
 
