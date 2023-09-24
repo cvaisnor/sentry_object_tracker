@@ -45,6 +45,10 @@ def main():
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+    
+    # turn off autofocus and autoexposure
+    camera_capture.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    camera_capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
 
     # wait for the Arduino to initialize
     time.sleep(3)
@@ -55,11 +59,13 @@ def main():
     
     ret, background_frame = camera_capture.read()
 
-    CONTOUR_THRESHOLD_VALUE = 70.0 # pixel value threshold for contour detection
-    MIN_AREA = 10 # minimum area of the contour
+    time.sleep(2)
+
+    CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
+    MIN_AREA = 5 # minimum area of the contour
     MAX_AREA = 1000 # maximum area of the contour
     TEMPLATE_MATCHING_THRESHOLD = 0.80 # threshold for template matching
-    OBJECT_BUFFER = 2 # number of pixels to add to each side of the contour when cropping the object
+    OBJECT_BUFFER = 0 # number of pixels to add to each side of the contour when cropping the object
     FRAMES_TO_AVERAGE = 4 # number of frames to average when tracking the object
     GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
 
@@ -98,7 +104,7 @@ def main():
             number_of_objects += 1
 
         # display the frames
-        # cv2.imshow("Threshold Frame", threshold_frame)
+        cv2.imshow("Threshold Frame", threshold_frame)
         cv2.imshow("Background View", current_frame_copy)
 
         if captured_object:
@@ -114,7 +120,7 @@ def main():
             filename = f'captured_objects/captured_object_{number_of_objects}.jpg'
 
             # save the cropped object image to /captured_objects
-            cv2.imwrite(filename, cropped_object_image)
+            # cv2.imwrite(filename, cropped_object_image)
 
             # display the cropped object image at a larger size (debugging)
             cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
