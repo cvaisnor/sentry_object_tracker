@@ -77,7 +77,7 @@ def get_contours(old_frame, current_frame, threshold_value=40.0):
     contours, _ = cv2.findContours(thresh_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # lambda function to eliminate contours that are zero
-    contours = list(filter(lambda x: cv2.contourArea(x) > 10, contours))
+    contours = list(filter(lambda x: cv2.contourArea(x) > 5, contours))
     # print('Area of contours:', [cv2.contourArea(x) for x in contours])
     
     return contours, thresh_image, difference
