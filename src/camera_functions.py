@@ -75,6 +75,10 @@ def get_contours(old_frame, current_frame, threshold_value=40.0):
     thresh_image = cv2.dilate(thresh_image, None, iterations=2)
 
     contours, _ = cv2.findContours(thresh_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # lambda function to eliminate contours that are zero
+    contours = list(filter(lambda x: cv2.contourArea(x) > 10, contours))
+    # print('Area of contours:', [cv2.contourArea(x) for x in contours])
     
     return contours, thresh_image, difference
 
@@ -90,14 +94,15 @@ def get_largest_contour(contours, min_area=100, max_area=10000):
         if cv2.contourArea(contour) > largest_contour_area:
             largest_contour = contour
             largest_contour_area = cv2.contourArea(contour)
+            # print('Largest contour area:', largest_contour_area)
     return largest_contour
 
 
-def combine_contours(contours, user_param_min_area, user_param_max_area):
+def combine_contours(contours, min_area=100, max_area=10000):
     '''Returns the min and max x and y values for the contours.'''
     min_x, min_y, max_x, max_y = 10000, 10000, 0, 0   
     for contour in contours:
-        if cv2.contourArea(contour) < 100 or cv2.contourArea(contour) > 1000:
+        if cv2.contourArea(contour) < min_area or cv2.contourArea(contour) > max_area:
             continue
 
         x, y, w, h = cv2.boundingRect(contour)
