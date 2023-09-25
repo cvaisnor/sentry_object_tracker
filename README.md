@@ -3,11 +3,9 @@
 Project Contents:
 - archive: old code
 - images: images for README.md and PyTorch timing test
-- src: main functions (main_steppers.py)
+- src: main functions
 - stepper_serial_control: Arduino code for stepper motor control
 - tests: for webcam, servo, motion detection, FT232H/PCA9685 control boards, cpu vs gpu comparison
-
-
 
 Needed if using FT232H/PCA9685 controller:
 ```bash
@@ -19,7 +17,7 @@ Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select
 sudo rmmmod uvcvideo
 sudo modprobe uvcvideo nodrop=1 timeout=5000
 ```
-other fix:
+(possible other fix):
 ```bash
 export OPENCV_VIDEOIO_PRIORITY_MSMF=0
 ```
@@ -46,7 +44,7 @@ Full: 6000 x 4000 pixels
 Crop: 151 x 144 pixels
 
 ```
-python process_timing/cpu_vs_gpu.py
+python tests/cpu_vs_gpu.py
 ```
 
 OUTPUT:
