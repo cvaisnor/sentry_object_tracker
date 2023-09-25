@@ -4,7 +4,6 @@
 import time
 import cv2
 
-from gopro_webcam import GoProWebcamPlayer
 from camera_functions import get_cropped_object_image, get_contours, get_largest_contour
 from tracking_functions import track_object_steppers
 
@@ -12,31 +11,6 @@ from tracking_functions import track_object_steppers
 def main():
     '''Main function.'''
     # arduino device is set in stepper_gimbal_functions.py
-
-    # https://github.com/gopro/OpenGoPro/blob/main/demos/python/multi_webcam/multi_webcam/webcam.py
-    # gopro = GoProWebcamPlayer(serial='646')
-
-    # gopro.open()
-
-    # https://gopro.github.io/OpenGoPro/python_sdk/api.html#open_gopro.api.params.WebcamFOV
-
-    # Resolutions:
-    # 1080p: 12
-    # 720p: 7
-
-    # FOV:
-    # SuperView: 3
-    # Wide: 0
-    # Linear: 4
-    # Narrow: 2
-
-    # gopro.webcam.start(gopro.port, resolution=7, fov=0)
-
-    # gopro.player.url = GoProWebcamPlayer.STREAM_URL.format(port=gopro.port)
-
-    # camera_capture = cv2.VideoCapture(gopro.player.url + "?overrun_nonfatal=1&fifo_size=500000", cv2.CAP_FFMPEG)
-
-    # camera_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     camera_capture = cv2.VideoCapture(0)
 
@@ -120,7 +94,7 @@ def main():
             filename = f'captured_objects/captured_object_{number_of_objects}.jpg'
 
             # save the cropped object image to /captured_objects
-            # cv2.imwrite(filename, cropped_object_image)
+            cv2.imwrite(filename, cropped_object_image)
 
             # display the cropped object image at a larger size (debugging)
             cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
