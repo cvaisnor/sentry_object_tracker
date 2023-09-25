@@ -16,7 +16,7 @@ print("Default buffersize: " + str(cap.get(cv2.CAP_PROP_BUFFERSIZE)))
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 cap.set(cv2.CAP_PROP_FPS, 60)
-# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 print()
 
 print("Default resolution: " + str(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + "x" + str(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
