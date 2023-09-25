@@ -6,7 +6,7 @@ from camera_functions import get_cropped_object_image, check_image_match, check_
 from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
 
 
-def track_object_steppers(camera_capture,
+def track_object(camera_capture,
                         cropped_object_image,
                         template_matching_threshold=0.70,
                         frames_to_average=3,
