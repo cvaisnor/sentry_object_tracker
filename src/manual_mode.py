@@ -20,19 +20,19 @@ def move_gimbal(keypress, pan_state, tilt_state) -> bool:
     '''Move the gimbal based on the keypress.'''
     if keypress == ord('w'):
         # print('Moving up')
-        tilt_state.speed = MotorSpeed.Speed1
+        tilt_state.speed = MotorSpeed.Speed4
         tilt_state.direction = MotorDirection.Up
     elif keypress == ord('s'):
         # print('Moving down')
-        tilt_state.speed = MotorSpeed.Speed1
+        tilt_state.speed = MotorSpeed.Speed4
         tilt_state.direction = MotorDirection.Down
     elif keypress == ord('a'):
         # print('Moving left')
-        pan_state.speed = MotorSpeed.Speed1
+        pan_state.speed = MotorSpeed.Speed4
         pan_state.direction = MotorDirection.Left
     elif keypress == ord('d'):
         # print('Moving right')
-        pan_state.speed = MotorSpeed.Speed1
+        pan_state.speed = MotorSpeed.Speed4
         pan_state.direction = MotorDirection.Right
     else:
         # print('Stopping')
@@ -49,18 +49,20 @@ def main():
     # arduino device is set in stepper_gimbal_functions.py
 
     # initialize the camera
-    camera_capture_webcam = cv2.VideoCapture(0)
+    camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 1280
-    HEIGHT = 720
-    USE_YOLO = False
+    WIDTH = 1920
+    HEIGHT = 1080
+    
+    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+    camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+
+    USE_YOLO = True
     if USE_YOLO:
         # model
         model = YOLO("yolov8n.pt")
-
-    # set the width and height
-    camera_capture_webcam.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-    camera_capture_webcam.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
 
     CONTOUR_THRESHOLD_VALUE = 70.0 # pixel value threshold for contour detection
 
@@ -87,17 +89,17 @@ def main():
     pan_state = MotorState()
     tilt_state = MotorState()
 
-    ret, background_frame = camera_capture_webcam.read()
+    ret, background_frame = camera_capture.read()
 
     while True:
 
-        return_value_webcam, current_frame_webcam = camera_capture_webcam.read()
+        return_value_webcam, current_frame = camera_capture.read()
         if return_value_webcam is False:
             print('Error reading frame')
             continue
 
         if USE_YOLO:
-            results = model(current_frame_webcam, stream=True)
+            results = model(current_frame, stream=True)
 
             # coordinates
             for r in results:
@@ -109,17 +111,15 @@ def main():
                     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2) # convert to int values
 
                     # put box in cam
-                    cv2.rectangle(current_frame_webcam, (x1, y1), (x2, y2), (255, 0, 255), 3)
+                    cv2.rectangle(current_frame, (x1, y1), (x2, y2), (255, 0, 255), 3)
 
                     # confidence
-                    # confidence = math.ceil((box.conf[0]*100))/100
+                    confidence = math.ceil((box.conf[0]*100))/100
                     # add confidence to box
-                    # cv2.putText(img, str(confidence), (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+                    cv2.putText(current_frame, str(confidence), (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
 
                     # class name
                     cls = int(box.cls[0])
-                    # add class name to box
-                    # cv2.putText(img, classNames[cls], (x1, y1-30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
 
                     # object details
                     org = [x1, y1]
@@ -128,9 +128,9 @@ def main():
                     color = (255, 0, 0)
                     thickness = 2
 
-                    cv2.putText(current_frame_webcam, classNames[cls], org, font, fontScale, color, thickness)
+                    cv2.putText(current_frame, classNames[cls], org, font, fontScale, color, thickness)
         else:
-            contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame_webcam, threshold_value=CONTOUR_THRESHOLD_VALUE)
+            contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame, threshold_value=CONTOUR_THRESHOLD_VALUE)
             for contour in contours:
                 # get the x, y, width, and height of box around the contour
                 x_of_contour, y_of_contour, width_of_contour, height_of_contour = cv2.boundingRect(contour)
@@ -140,13 +140,13 @@ def main():
                     continue
 
                 # draw a rectangle around the contour
-                cv2.rectangle(current_frame_webcam, (x_of_contour, y_of_contour), (x_of_contour + width_of_contour, y_of_contour + height_of_contour), (0, 255, 0), 2)
+                cv2.rectangle(current_frame, (x_of_contour, y_of_contour), (x_of_contour + width_of_contour, y_of_contour + height_of_contour), (0, 255, 0), 2)
 
         keypress = read_keypress()
 
         move_gimbal(keypress, pan_state, tilt_state)
 
-        cv2.imshow("Webcam View", current_frame_webcam)
+        cv2.imshow("Webcam View", current_frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q') or keypress == ord('q'):
             # cleanup the camera and close any open windows
@@ -155,7 +155,7 @@ def main():
 
         # new background frame
         if keypress == ord('b'):
-            ret, background_frame = camera_capture_webcam.read()
+            ret, background_frame = camera_capture.read()
             print('New background frame')
 
 if __name__ == "__main__":
