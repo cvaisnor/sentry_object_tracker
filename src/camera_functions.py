@@ -1,6 +1,4 @@
 import cv2
-import torch
-import numpy as np
 
 def capture_single_frame(camera_capture):
     '''Captures a single frame from the camera.'''
@@ -114,46 +112,3 @@ def combine_contours(contours, min_area=100, max_area=10000):
         max_y = max(y + h, max_y)
 
     return min_x, min_y, max_x, max_y
-
-
-def template_matching_pytorch(full_image, object_to_find):
-    """
-    Perform template matching with PyTorch.
-    :param full_image: the image to search
-    :param object_to_find: the object to find
-    :return: the location of the object
-    """
-    # create tensor from openCV images
-    # full image is [480, 640, 3]
-    # object to find is [100, 100, 3]
-
-    # convert to grayscale
-    full_image = cv2.cvtColor(full_image, cv2.COLOR_BGR2GRAY)
-    object_to_find = cv2.cvtColor(object_to_find, cv2.COLOR_BGR2GRAY)
-
-    print('full_image.shape: ', full_image.shape)
-    print('object_to_find.shape: ', object_to_find.shape)
-
-    full_image = torch.from_numpy(full_image).unsqueeze(0).unsqueeze(0).float()
-    object_to_find = torch.from_numpy(object_to_find).unsqueeze(0).unsqueeze(0).float()
-
-    # Move tensor to GPU
-    if torch.cuda.is_available():
-        full_image = full_image.cuda()
-        object_to_find = object_to_find.cuda()
-
-    # Perform template matching with PyTorch and return the location of the object, and a similarity score
-    # conv2d expects a 4D tensor, so we need to unsqueeze the first two dimensions
-
-    res = torch.nn.functional.conv2d(full_image, object_to_find)
-    _, max_index = torch.max(res.view(res.shape[0], -1), dim=1)
-    y, x = np.unravel_index(max_index.cpu().numpy(), res.shape[-2:])
-    max_loc = (y, x)
-
-    # release GPU memory
-    # del full_image
-    # del object_to_find
-    # del res
-    # del max_index
-
-    return max_loc
