@@ -5,7 +5,7 @@ import time
 import cv2
 
 from camera_functions import get_cropped_object_image, get_contours, get_largest_contour
-from tracking_functions import track_object_steppers
+from tracking_functions import track_object
 
 
 def main():
@@ -14,15 +14,13 @@ def main():
 
     camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 1280
-    HEIGHT = 720
+    WIDTH = 1920
+    HEIGHT = 1080
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    
-    # turn off autofocus and autoexposure
-    camera_capture.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-    camera_capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+    camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     # wait for the Arduino to initialize
     time.sleep(3)
@@ -62,7 +60,7 @@ def main():
             largest_countour = get_largest_contour(contours, min_area=MIN_AREA, max_area=MAX_AREA) # find the object with the largest contour
             
             if largest_countour is None:
-                print('No contours found')
+                print('No contours found that meet the area requirements.')
                 continue
 
             # get the x, y, width, and height of box around the contour
@@ -102,7 +100,7 @@ def main():
             print('Tracking object')
 
             # switch to tracking object
-            switch_to_motion_detection = track_object_steppers(camera_capture,
+            switch_to_motion_detection = track_object(camera_capture,
                                 cropped_object_image,
                                 template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
                                 frames_to_average=FRAMES_TO_AVERAGE,
