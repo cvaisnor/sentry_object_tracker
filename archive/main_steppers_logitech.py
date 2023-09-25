@@ -5,7 +5,7 @@ import time
 import cv2
 
 from camera_functions import capture_single_frame, get_cropped_object_image, get_contours, get_largest_contour
-from tracking_functions import track_object_steppers, track_object_steppers_pytorch
+from tracking_functions import track_object, track_object_steppers_pytorch
 
 
 def main():
@@ -85,7 +85,7 @@ def main():
             print('Tracking object')
 
             # switch to tracking object
-            track_object_steppers(camera_capture,
+            track_object(camera_capture,
                                 cropped_object_image,
                                 template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
                                 frames_to_average=FRAMES_TO_AVERAGE)

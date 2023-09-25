@@ -1,6 +1,6 @@
 import cv2
 
-from gopro_webcam import GoProWebcamPlayer
+from archive.gopro_webcam import GoProWebcamPlayer
 
 
 # https://github.com/gopro/OpenGoPro/blob/main/demos/python/multi_webcam/multi_webcam/webcam.py
