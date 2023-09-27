@@ -1,7 +1,6 @@
 from enum import auto, IntEnum
 import serial
 import time
-import threading
 
 arduino = serial.Serial('/dev/ttyACM0', 9600)
 
@@ -39,26 +38,11 @@ def set_gimbal_state(pan = MotorState(), tilt = MotorState()):
     # print the message as a string of bits
     # print(f'Sending command: {state:08b}')
 
-def listen_for_messages():
-    while True:
-        if (arduino.in_waiting > 0):
-            line = arduino.readline()
-            if line.startswith(b"*") and line.endswith(b"#"):
-                print(line[1:-1].decode("utf-8"))
-
-
-# To start calibration from Python
-def start_calibration():
-    arduino.write(bytes([0xFF]))
-
 
 if __name__ == '__main__':
 
     # add small delay to give the communication a moment to establish
     time.sleep(2)
-
-    # Start listening for messages
-    threading.Thread(target=listen_for_messages, daemon=True).start()
 
     print('Testing gimbal motors...')
     set_gimbal_state(tilt=MotorState(direction=MotorDirection.Up, speed=MotorSpeed.Speed1))

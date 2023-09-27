@@ -3,18 +3,6 @@ const int PAN_DIR_PIN = 5;
 const int TILT_STEP_PIN = 3;
 const int TILT_DIR_PIN = 6;
 
-const int PAN_MIN_PIN = 7;
-const int TILT_MIN_PIN = 8;
-
-enum class CalibrationState {
-  NotCalibrated,
-  Calibrating,
-  Calibrated
-};
-
-CalibrationState PAN_CALIBRATION_STATE;
-CalibrationState TILT_CALIBRATION_STATE;
-
 enum class MotorDirection : uint8_t {
   Down = 0,
   Up = 1,
@@ -94,41 +82,9 @@ void setup() {
   pinMode(PAN_DIR_PIN, OUTPUT);
   pinMode(TILT_STEP_PIN, OUTPUT);
   pinMode(TILT_DIR_PIN, OUTPUT);
-  pinMode(PAN_MIN_PIN, INPUT_PULLUP);
-  pinMode(TILT_MIN_PIN, INPUT_PULLUP);
   Serial.begin(9600);
 
-  PAN_CALIBRATION_STATE = CalibrationState::NotCalibrated;
-  TILT_CALIBRATION_STATE = CalibrationState::NotCalibrated;
-
   lastCommandRead = millis();
-}
-
-void startCalibration() {
-  PAN_CALIBRATION_STATE = CalibrationState::Calibrating;
-  TILT_CALIBRATION_STATE = CalibrationState::Calibrating;
-}
-
-bool isCalibrated() {
-  return PAN_CALIBRATION_STATE == CalibrationState::Calibrated && TILT_CALIBRATION_STATE == CalibrationState::Calibrated;
-}
-
-void calibrateIfNecessary() {
-  if (PAN_CALIBRATION_STATE == CalibrationState::Calibrating && digitalRead(PAN_MIN_PIN) == LOW) {
-    PAN_CALIBRATION_STATE = CalibrationState::Calibrated;
-    sendSerialMessage("Pan axis calibrated!");
-  }
-
-  if (TILT_CALIBRATION_STATE == CalibrationState::Calibrating && digitalRead(TILT_MIN_PIN) == LOW) {
-    TILT_CALIBRATION_STATE = CalibrationState::Calibrated;
-    sendSerialMessage("Tilt axis calibrated!");
-  }
-}
-
-void sendSerialMessage(char *msg) {
-  Serial.print("*");
-  Serial.print(msg);
-  Serial.print("#");
 }
 
 
@@ -190,19 +146,12 @@ MotorsState readMotorsState() {
 
 
 void loop() {
-  if (!isCalibrated()) {
-    MOTORS_STATE = MotorsState{ MotorDirection::Down, MotorDirection::Down, MotorSpeed::Speed1, MotorSpeed::Speed1 };
-  } else if (Serial.available() > 0) {
+  if (Serial.available() > 0) {
     MOTORS_STATE = readMotorsState();
     lastCommandRead = millis();
   }
-  else if (PAN_CALIBRATION_STATE == CalibrationState::Calibrating && digitalRead(PAN_MIN_PIN) == LOW) {
-    MOTORS_STATE.panSpeed = MotorSpeed::Off;
-  } else if (TILT_CALIBRATION_STATE == CalibrationState::Calibrating && digitalRead(TILT_MIN_PIN) == LOW) {
-    MOTORS_STATE.tiltSpeed = MotorSpeed::Off;
-  }
-  
-  // if it's been more than # second, then turn off the motors as a safety measure
+
+  // if it's been more than 0.25 second, then turn off the motors as a safety measure
   if (millis() - lastCommandRead > 100) {
     MOTORS_STATE = MotorsState();
   }
