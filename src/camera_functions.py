@@ -110,6 +110,7 @@ def contour_parser(background_frame, current_frame, threshold_value, min_area, m
     valid_countours = []
 
     contour_found = False
+    x, y, w, h = 0, 0, 0, 0
 
     if len(contours) > 0:
         for contour in contours:

@@ -14,13 +14,13 @@ def main():
 
     camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 1920
-    HEIGHT = 1080
+    WIDTH = 1280
+    HEIGHT = 720
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    camera_capture.set(cv2.CAP_PROP_FPS, 60)
-    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    # camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    # camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     # wait for the Arduino to initialize
     time.sleep(3)
@@ -33,8 +33,6 @@ def main():
     if ret is False:
         print('Error reading first background frame')
         return
-    
-    cv2.imshow("Background View", background_frame) # display the frame
 
     CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
     MIN_AREA = 5 # minimum area of the contour
@@ -51,6 +49,9 @@ def main():
         if ret is False:
             print('Error reading frame')
             continue
+
+        # display the background frame
+        cv2.imshow("View", background_frame)
 
         contour_found, x, y, w, h = contour_parser(current_frame,
                                                     background_frame,
@@ -94,11 +95,12 @@ def main():
                 print()
 
                 # flush the frames in the buffer
-                for i in range(60):
+                for i in range(10):
                     camera_capture.grab()
 
                 # capture a new background frame
                 ret, background_frame = camera_capture.read()
+                print('New background frame captured')
                 continue
 
         if (contour_found and not switch_to_motion_detection) or cv2.waitKey(1) & 0xFF == ord('q'):
