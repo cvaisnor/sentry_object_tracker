@@ -1,5 +1,3 @@
-byte axis_id;
-byte direction;
 signed int speed;
 signed int distance;
 
@@ -52,11 +50,6 @@ void readMotorCommand() {
     int speed = command.substring(0, command.indexOf(' ')).toInt();
     command = command.substring(command.indexOf(' ')+1);
     int distance = command.toInt();
-    
-    // Serial.println(String("Received: Axis = ") + String(axis_id));
-    // Serial.println(String("Received: Direction = ") + String(direction));
-    // Serial.println(String("Received: Speed = ") + String(speed));
-    // Serial.println(String("Received: Distance = ") + String(distance));
 
     if (axis_id == 0) {
       controlMotor(panStep, panDir, direction, distance, speed);
