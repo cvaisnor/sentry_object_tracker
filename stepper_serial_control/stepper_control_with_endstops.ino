@@ -80,10 +80,6 @@ unsigned long lastCommandRead;
 MotorDirection LAST_PAN_DIRECTION;
 MotorDirection LAST_TILT_DIRECTION;
 
-// bool ENDSTOP_HIT = false;
-// int PAN_RANGE = 0;
-// int TILT_RANGE = 0;
-
 int PAN_MIDDLE = 0;
 int TILT_MIDDLE = 0;
 
@@ -124,20 +120,20 @@ void calibrateAxis(int stepPin, int dirPin, int &axisMiddle, int AXIS_STOP_PIN) 
   while(!endHit) {
     digitalWrite(dirPin, (uint8_t)MotorDirection::Left);
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(1000);
+    delayMicroseconds(500);
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(1000);
+    delayMicroseconds(500);
     endHit = checkEndStops(AXIS_STOP_PIN);
     if(endHit) {
       Serial.println("Left endstop hit during left movement");
       
       // move back 50 steps to get off the end stop
       digitalWrite(dirPin, (uint8_t)MotorDirection::Right);
-      for(int i = 0; i < 500; i++) {
+      for(int i = 0; i < 200; i++) {
         digitalWrite(stepPin, HIGH);
-        delayMicroseconds(1000);
+        delayMicroseconds(500);
         digitalWrite(stepPin, LOW);
-        delayMicroseconds(1000);
+        delayMicroseconds(500);
       }
     }
   }
@@ -145,27 +141,26 @@ void calibrateAxis(int stepPin, int dirPin, int &axisMiddle, int AXIS_STOP_PIN) 
   // Reset the endstop hit and start counting steps
   endHit = false;
   int steps = 0;
-  delay(1000);
 
   Serial.println("Switching directions");
   // Move to the right end, counting steps
   while(!endHit) {
     digitalWrite(dirPin, (uint8_t)MotorDirection::Right);
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(1000);
+    delayMicroseconds(500);
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(1000);
+    delayMicroseconds(500);
     endHit = checkEndStops(AXIS_STOP_PIN);
     if(endHit) {
       Serial.println("Right endstop hit during right movement");
       
       // move back 50 steps to get off the end stop
       digitalWrite(dirPin, (uint8_t)MotorDirection::Left);
-      for(int i = 0; i < 500; i++) {
+      for(int i = 0; i < 200; i++) {
         digitalWrite(stepPin, HIGH);
-        delayMicroseconds(1000);
+        delayMicroseconds(500);
         digitalWrite(stepPin, LOW);
-        delayMicroseconds(1000);
+        delayMicroseconds(500);
         steps--;
       }
     }
@@ -175,22 +170,22 @@ void calibrateAxis(int stepPin, int dirPin, int &axisMiddle, int AXIS_STOP_PIN) 
   // Reset the endstop hit and set the axis range and middle
   endHit = false;
   axisMiddle = steps / 2;
-  // Serial.println(axisRange);
 
   // Move to the middle position
   digitalWrite(dirPin, (uint8_t)MotorDirection::Left);
   for(int i = 0; i < axisMiddle; i++) {
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(1000);
+    delayMicroseconds(500);
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(1000);
+    delayMicroseconds(500);
   }
 }
 
 
 void calibrateAxes() {
   calibrateAxis(PAN_STEP_PIN, PAN_DIR_PIN, PAN_MIDDLE, PAN_STOP_PIN); // calibrate pan axis
-  // calibrateAxis(TILT_STEP_PIN, TILT_DIR_PIN, TILT_MIDDLE, TILT_STOP_PIN); // calibrate tilt axis
+  delay(1000);
+  calibrateAxis(TILT_STEP_PIN, TILT_DIR_PIN, TILT_MIDDLE, TILT_STOP_PIN); // calibrate tilt axis
 }
 
 
@@ -264,7 +259,7 @@ void loop() {
   delay(2000);
   Serial.println("Calibrating Axes");
   calibrateAxes();
-  delay(100000);
+  delay(20000);
   // if (Serial.available() > 0) {
   //   char command = (char)Serial.read();
   //   if(command == 'C') {
@@ -280,6 +275,6 @@ void loop() {
   //   MOTORS_STATE = MotorsState();
   // }
 
-  // stepMotors(MOTORS_STATE, 1);
+  // stepMotors(MOTORS_STATE, 1, PAN_STOP_PIN, TILT_STOP_PIN);
   // }
 }
