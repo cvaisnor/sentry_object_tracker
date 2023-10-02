@@ -43,7 +43,7 @@ class StepperMotor {
     }
 
     void move(unsigned int steps, MotorDirection direction, unsigned int speed) {
-      if (totalSteps < 0) {
+      if (totalSteps < 0 || speed == 0 || steps == 0) {
         return;
       }
       
@@ -124,6 +124,118 @@ class StepperMotor {
 
 };
 
+class MotorSpeed {
+public:
+  enum Speed : uint8_t {
+    Off = 0,
+    Speed1,
+    Speed2,
+    Speed3,
+    Speed4,
+    Speed5,
+    Speed6,
+    Speed7
+  };
+
+  MotorSpeed()
+    : m_speed(Off){};
+  MotorSpeed(Speed speed)
+    : m_speed(speed){};
+  MotorSpeed(uint8_t speed) {
+    if (speed >= Off && speed <= Speed7) {
+      m_speed = (Speed)speed;
+    } else {
+      m_speed = Off;
+    }
+  };
+
+  bool operator==(MotorSpeed rhs) {
+      return m_speed == rhs.m_speed;
+  };
+  bool operator!=(MotorSpeed rhs) {
+      return m_speed != rhs.m_speed;
+  };
+  bool operator<(MotorSpeed rhs) {
+      return m_speed < rhs.m_speed;
+  };
+  bool operator>(MotorSpeed rhs) {
+      return m_speed > rhs.m_speed;
+  };
+
+  int getDelay() {
+    switch (m_speed) {
+      case Speed1: return 2000;
+      case Speed2: return 1500;
+      case Speed3: return 1000;
+      case Speed4: return 500;
+      case Speed5: return 375;
+      case Speed6: return 250;
+      case Speed7: return 175;
+      default: return 0;
+    }
+  };
+
+private:
+  Speed m_speed;
+};
+
+struct MotorsState {
+  MotorDirection panDirection;
+  MotorDirection tiltDirection;
+  MotorSpeed panSpeed;
+  MotorSpeed tiltSpeed;
+
+  MotorsState(uint8_t command) {
+    this->panDirection = (MotorDirection)bitRead(command, 7);
+    this->tiltDirection = (MotorDirection)bitRead(command, 6);
+    this->panSpeed = MotorSpeed((command & 0b111000) >> 3);
+    this->tiltSpeed = MotorSpeed(command & 0b111);
+  }
+
+  MotorsState() {
+    this->panDirection = (MotorDirection)0;
+    this->tiltDirection = (MotorDirection)0;
+    this->panSpeed = MotorSpeed();
+    this->tiltSpeed = MotorSpeed();
+  }
+};
+
+enum class MessageCommand : uint8_t {
+  Calibrate = 0, 
+  Neutral = 1,
+  Move = 2,
+};
+
+
+struct Message {
+  MessageCommand command;
+  MotorsState motorsState;
+
+  Message(MessageCommand command, MotorsState motorsState) {
+    this->command = command;
+    this->motorsState = motorsState;
+  }
+  
+  Message(MessageCommand command) {
+    this->command = command;
+  }
+};
+
+
+Message readMessage() {
+  uint8_t command = Serial.read();
+  if (command == 0) {
+    return Message(MessageCommand::Calibrate);
+  }
+  else if (command == 1) {
+    return Message(MessageCommand::Neutral);
+  }
+  else if (command == 2) {
+    command = Serial.read();
+    return Message(MessageCommand::Move, MotorsState(command));
+  }
+}
+
 // initialize the pan and tilt motors
 StepperMotor panMotor = StepperMotor(PAN_STEP_PIN, PAN_DIR_PIN, PAN_STOP_PIN);
 StepperMotor tiltMotor = StepperMotor(TILT_STEP_PIN, TILT_DIR_PIN, TILT_STOP_PIN);
@@ -145,10 +257,21 @@ void setup() {
 }
 
 void loop() {
-  delay(3000);
-  Serial.println("Calibrating");
-  panMotor.calibrate();
-  delay(1000);
-  tiltMotor.calibrate();
-  delay(20000);
+  if (Serial.available()) {
+    // read the message from the serial port
+    Message message = readMessage();
+    // calibrate the motors
+    if (message.command == MessageCommand::Calibrate) {
+      panMotor.calibrate();
+      tiltMotor.calibrate();
+    } // move to neutral position
+    else if (message.command == MessageCommand::Neutral) {
+      panMotor.moveToNeutral(500);
+      tiltMotor.moveToNeutral(500);
+    } // move the motors
+    else if (message.command == MessageCommand::Move) {
+      panMotor.move(100, message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
+      tiltMotor.move(100, message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
+    }
+  }
 }
