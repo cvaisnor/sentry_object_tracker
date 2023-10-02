@@ -5,6 +5,14 @@ const int TILT_DIR_PIN = 6;
 const int PAN_STOP_PIN = 9;
 const int TILT_STOP_PIN = 10;
 
+int PAN_MIDDLE = 0;
+int TILT_MIDDLE = 0;
+
+int PAN_TOTAL_STEPS = 0;
+int TILT_TOTAL_STEPS = 0;
+
+class
+
 enum class MotorDirection : uint8_t {
   Down = 0,
   Up = 1,
@@ -79,9 +87,6 @@ unsigned long lastCommandRead;
 
 MotorDirection LAST_PAN_DIRECTION;
 MotorDirection LAST_TILT_DIRECTION;
-
-int PAN_MIDDLE = 0;
-int TILT_MIDDLE = 0;
 
 
 void setEndStopPins(int PAN_STOP_PIN, int TILT_STOP_PIN) {
@@ -171,6 +176,14 @@ void calibrateAxis(int stepPin, int dirPin, int &axisMiddle, int AXIS_STOP_PIN) 
   endHit = false;
   axisMiddle = steps / 2;
 
+  // write total number of steps to a global variable for each axis
+  if(stepPin == PAN_STEP_PIN) {
+    PAN_TOTAL_STEPS = steps;
+  }
+  else if(stepPin == TILT_STEP_PIN) {
+    TILT_TOTAL_STEPS = steps;
+  }
+
   // Move to the middle position
   digitalWrite(dirPin, (uint8_t)MotorDirection::Left);
   for(int i = 0; i < axisMiddle; i++) {
@@ -188,16 +201,10 @@ void calibrateAxes() {
   calibrateAxis(TILT_STEP_PIN, TILT_DIR_PIN, TILT_MIDDLE, TILT_STOP_PIN); // calibrate tilt axis
 }
 
+void setNeutral() {}
+
 
 void stepMotors(MotorsState state, int distance, int PAN_STOP_PIN, int TILT_STOP_PIN) {
-  int stopPins[2] = {PAN_STOP_PIN, TILT_STOP_PIN};
-  for (int i = 0; i < 2; i++) {
-    bool endPin = checkEndStops(stopPins[i]);
-
-    if (endPin) {
-      return;
-    }
-  }
   
   if (state.panSpeed == MotorSpeed::Off && state.tiltSpeed == MotorSpeed::Off) {
     return;
@@ -214,10 +221,10 @@ void stepMotors(MotorsState state, int distance, int PAN_STOP_PIN, int TILT_STOP
 
   // TODO: control speed of each direction independently
   for (int i = 0; i < distance; i++) {
-    if (state.panSpeed != MotorSpeed::Off) {
+    if (state.panSpeed != MotorSpeed::Off && !checkEndStops(PAN_STOP_PIN)) {
       digitalWrite(PAN_STEP_PIN, HIGH);
     }
-    if (state.tiltSpeed != MotorSpeed::Off) {
+    if (state.tiltSpeed != MotorSpeed::Off && !checkEndStops(TILT_STOP_PIN)) {
       digitalWrite(TILT_STEP_PIN, HIGH);
     }
     delayMicroseconds(maxDelay);
