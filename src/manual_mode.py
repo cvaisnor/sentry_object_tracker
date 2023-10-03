@@ -7,59 +7,27 @@ from ultralytics import YOLO
 import math
 
 from camera_functions import get_contours
-from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
-
-
-def read_keypress() -> int:
-    '''Read keypress from the user.'''
-    keypress = cv2.waitKey(1) & 0xFF
-    return keypress
-
-
-def move_gimbal(keypress, pan_state, tilt_state) -> bool:
-    '''Move the gimbal based on the keypress.'''
-    if keypress == ord('w'):
-        # print('Moving up')
-        tilt_state.speed = MotorSpeed.Speed4
-        tilt_state.direction = MotorDirection.Up
-    elif keypress == ord('s'):
-        # print('Moving down')
-        tilt_state.speed = MotorSpeed.Speed4
-        tilt_state.direction = MotorDirection.Down
-    elif keypress == ord('a'):
-        # print('Moving left')
-        pan_state.speed = MotorSpeed.Speed4
-        pan_state.direction = MotorDirection.Left
-    elif keypress == ord('d'):
-        # print('Moving right')
-        pan_state.speed = MotorSpeed.Speed4
-        pan_state.direction = MotorDirection.Right
-    else:
-        # print('Stopping')
-        pan_state.speed = MotorSpeed.Off
-        pan_state.direction = MotorDirection.Zero
-        tilt_state.speed = MotorSpeed.Off
-        tilt_state.direction = MotorDirection.Zero
-
-    set_gimbal_state(pan = pan_state, tilt = tilt_state)
+# from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
+from classes import calibrate_steppers, set_neutral, move_steppers, MotorDirection, MotorSpeed, MotorState, SerialConnection
 
 
 def main():
     '''Main function.'''
-    # arduino device is set in stepper_gimbal_functions.py
+    # initialize serial connection
+    connection = SerialConnection()
 
     # initialize the camera
     camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 1920
-    HEIGHT = 1080
+    WIDTH = 1280
+    HEIGHT = 720
     
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    camera_capture.set(cv2.CAP_PROP_FPS, 60)
-    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    # camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    # camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
-    USE_YOLO = True
+    USE_YOLO = False
     if USE_YOLO:
         # model
         model = YOLO("yolov8n.pt")
@@ -86,10 +54,17 @@ def main():
     print('Sentry Camera Armed')
     print('-'*30)
 
-    pan_state = MotorState()
-    tilt_state = MotorState()
+    # send calibration message
+    calibrate_steppers(connection)
+
+    # initialize motor states
+    tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
+    pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
 
     ret, background_frame = camera_capture.read()
+    if ret is False:
+        print('Error reading frame')
+        return
 
     while True:
 
@@ -144,7 +119,7 @@ def main():
 
         keypress = read_keypress()
 
-        move_gimbal(keypress, pan_state, tilt_state)
+        move_gimbal(connection, keypress, pan_state, tilt_state)
 
         cv2.imshow("Webcam View", current_frame)
 
