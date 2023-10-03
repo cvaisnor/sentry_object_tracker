@@ -1,58 +1,105 @@
-from enum import auto, IntEnum
-import serial
 import time
+import cv2
 
-arduino = serial.Serial('/dev/ttyACM0', 9600)
+from classes import SerialConnection, Message, MessageCommand, MotorState, MotorDirection, MotorSpeed
 
-class MotorDirection(IntEnum):
-    Zero = 0
-    One = 1
-    Up = 1
-    Down = 0
-    Left = 0
-    Right = 1
 
-class MotorSpeed(IntEnum):
-    Off = 0
-    Speed1 = 1
-    Speed2 = 2
-    Speed3 = 3
-    Speed4 = 4
-    Speed5 = 5
-    Speed6 = 6
-    Speed7 = 7
+def calibrate_steppers(connection: SerialConnection):
+    message = Message(MessageCommand.Calibrate, None)
+    connection.send(message.dump())
+    time.sleep(16)
 
-class MotorState:
-    def __init__(self, direction = MotorDirection.Zero, speed = MotorSpeed.Off):
-        self.direction = direction
-        self.speed = speed
 
-def set_gimbal_state(pan = MotorState(), tilt = MotorState()):
-    state = (pan.direction & 0b1) << 7
-    state |= (tilt.direction & 0b1) << 6
-    state |= (pan.speed & 0b111) << 3
-    state |= tilt.speed & 0b111
+def set_neutral(connection: SerialConnection):
+    message = Message(MessageCommand.SetNeutral, None)
+    connection.send(message.dump())
+    time.sleep(3)
 
-    arduino.write(bytes([state]))
 
-    # print the message as a string of bits
-    # print(f'Sending command: {state:08b}')
+def move_steppers(connection: SerialConnection, pan: MotorState, tilt: MotorState):
+    message = Message(MessageCommand.MoveStepper, (pan, tilt))
+    connection.send(message.dump())
+
+
+def read_keypress() -> int:
+    '''Read keypress from the user.'''
+    keypress = cv2.waitKey(1) & 0xFF
+    return keypress
+
+
+def move_gimbal_with_keypress(connection, pan_state, tilt_state):
+    '''Manual control of the gimbal using the keyboard.'''
+    keypress = 255
+
+    keypress = read_keypress()
+    if keypress == 255:
+        return keypress
+
+    if keypress == ord('w'):
+        # print('Moving up')
+        tilt_state.speed = MotorSpeed.Speed4
+        tilt_state.direction = MotorDirection.Up
+    elif keypress == ord('s'):
+        # print('Moving down')
+        tilt_state.speed = MotorSpeed.Speed4
+        tilt_state.direction = MotorDirection.Down
+    elif keypress == ord('a'):
+        # print('Moving left')
+        pan_state.speed = MotorSpeed.Speed4
+        pan_state.direction = MotorDirection.Zero
+    elif keypress == ord('d'):
+        # print('Moving right')
+        pan_state.speed = MotorSpeed.Speed4
+        pan_state.direction = MotorDirection.One
+    else:
+        # print('Stopping')
+        pan_state.speed = MotorSpeed.Off
+        pan_state.direction = MotorDirection.Zero
+        tilt_state.speed = MotorSpeed.Off
+        tilt_state.direction = MotorDirection.Zero
+
+    move_steppers(connection, pan_state, tilt_state)
+    return keypress
 
 
 if __name__ == '__main__':
+    # initialize serial connection
+    connection = SerialConnection()
+    print('Serial connection established')
 
     # add small delay to give the communication a moment to establish
     time.sleep(2)
 
-    print('Testing gimbal motors...')
-    set_gimbal_state(tilt=MotorState(direction=MotorDirection.Up, speed=MotorSpeed.Speed1))
-    time.sleep(0.5)
+    # send calibration message
+    print('Calibrating steppers')
+    calibrate_steppers(connection)
+    print('Calibration complete')
+    print()
 
-    set_gimbal_state(tilt=MotorState(direction=MotorDirection.Down, speed=MotorSpeed.Speed1))
-    time.sleep(0.5)
+    # initalize motor states
+    tilt_state = MotorState()
+    pan_state = MotorState()
 
-    set_gimbal_state(pan=MotorState(direction=MotorDirection.Left, speed=MotorSpeed.Speed1))
-    time.sleep(0.5)
+    # move tilt axis up
+    print('Moving tilt axis up')
+    for i in range(0, 5):
+        tilt_state = MotorState(MotorDirection.Up, MotorSpeed.Speed4)
+        move_steppers(connection, pan_state, tilt_state)
+    print('Motion complete')
+    print()
+    time.sleep(2)
 
-    set_gimbal_state(pan=MotorState(direction=MotorDirection.Right, speed=MotorSpeed.Speed1))
-    time.sleep(0.5)
+    # set neutral position
+    print('Setting neutral position')
+    set_neutral(connection)
+    print('Neutral position set')
+
+    # while True:
+    
+    #     keypress = move_gimbal_with_keypress(connection, pan_state, tilt_state)
+    #     print('Key pressed: ', keypress)
+
+    #     if cv2.waitKey(1) & 0xFF == ord('q') or keypress == ord('q'):
+    #         # cleanup the camera and close any open windows
+    #         cv2.destroyAllWindows()
+    #         break
