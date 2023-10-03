@@ -51,7 +51,7 @@ class StepperMotor {
         // get difference between currentStep and totalSteps
         steps = totalSteps - currentStep;
       } 
-      else if (currentStep - steps < 0 && direction == MotorDirection::Direction0) {
+      else if (steps > currentStep && direction == MotorDirection::Direction0) {
         // get difference between currentStep and 0
         steps = currentStep;
       }
@@ -83,6 +83,8 @@ class StepperMotor {
       // Move to the left end
       bool endHit = false;
 
+      const int BUFFER = 200;
+
       while(!endHit) {
         unsafeMove(1, MotorDirection::Direction0, 500);
         endHit = checkEndStops();
@@ -90,7 +92,7 @@ class StepperMotor {
           Serial.println("Left endstop hit during left movement");
           
           // move back # steps to get off the end stop
-          unsafeMove(200, MotorDirection::Direction1, 500);
+          unsafeMove(BUFFER, MotorDirection::Direction1, 500);
         }
       }
 
@@ -102,16 +104,14 @@ class StepperMotor {
       // Move to the right end, counting steps
       while(!endHit) {
         unsafeMove(1, MotorDirection::Direction1, 500);
+        steps++;
         endHit = checkEndStops();
         if(endHit) {
           Serial.println("Right endstop hit during right movement");
           
           // move back # steps to get off the end stop
-          unsafeMove(200, MotorDirection::Direction0, 500);
-          steps -= 200;
-          }
-        else {
-          steps++;
+          unsafeMove(BUFFER, MotorDirection::Direction0, 500);
+          steps -= BUFFER;
         }
       }
       // write the total number of steps to the class attribute
