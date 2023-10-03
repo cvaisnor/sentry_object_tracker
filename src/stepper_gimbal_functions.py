@@ -98,20 +98,6 @@ if __name__ == '__main__':
     tilt_state = MotorState()
     pan_state = MotorState()
 
-    # # move tilt axis up
-    # print('Moving tilt axis up')
-    # for i in range(0, 5):
-    #     tilt_state = MotorState(MotorDirection.Up, MotorSpeed.Speed4)
-    #     move_steppers(connection, pan_state, tilt_state)
-    # print('Motion complete')
-    # print()
-    # time.sleep(2)
-
-    # # set neutral position
-    # print('Setting neutral position')
-    # set_neutral(connection)
-    # print('Neutral position set')
-
     while True:
         keypress = move_gimbal_with_keypress(connection, pan_state, tilt_state)
         print('Key pressed: ', keypress)
