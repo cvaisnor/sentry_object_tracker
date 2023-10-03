@@ -231,6 +231,7 @@ Message readMessage() {
     return Message(MessageCommand::Neutral);
   }
   else if (command == 2) {
+    while (!Serial.available()) ;  // wait until next byte arrives
     command = Serial.read();
     return Message(MessageCommand::Move, MotorsState(command));
   }
