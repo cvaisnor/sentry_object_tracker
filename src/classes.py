@@ -1,42 +1,6 @@
 import serial
 import time
-from enum import IntEnum, auto
-
-global degrees_per_step
-
-stepper_gear_size = 20 # teeth
-
-pan_gear_size = 80 # teeth
-tilt_gear_size = 60 # teeth
-
-degrees_per_step = 1.8 # degrees of rotation per step on stepper motor
-
-pan_gear_ratio = pan_gear_size / stepper_gear_size
-tilt_gear_ratio = tilt_gear_size / stepper_gear_size
-
-pan_degrees_per_step = degrees_per_step / pan_gear_ratio
-tilt_degrees_per_step = degrees_per_step / tilt_gear_ratio
-
-
-def calibrate_gimbal(SerialConnection):
-    # letter 
-    pass
-    
-
-def set_gimbal_neutral():
-    pass
-
-
-def move_pan(steps, direction, speed):
-    pass
-
-
-def move_tilt(steps, direction, speed):
-    pass
-
-
-def set_gimbal_state(pan_command, tilt_command):
-    pass
+from enum import IntEnum
 
 
 class SerialConnection():
@@ -45,11 +9,11 @@ class SerialConnection():
         self.port = '/dev/ttyACM0'
         self.timeout = 2
         self.arduino = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
-    
+
     def send(self, message):
         self.arduino.write(message)
 
-    
+
     def receive(self):
         return self.arduino.readline()
 
@@ -59,8 +23,8 @@ class MotorDirection(IntEnum):
     One = 1
     Up = 1
     Down = 0
-    Left = 0
-    Right = 1
+    # Left = 0
+    # Right = 1
 
 
 class MotorSpeed(IntEnum):
@@ -84,7 +48,7 @@ class MotorState:
     def __init__(self, direction = MotorDirection.Zero, speed = MotorSpeed.Off):
         self.direction = direction
         self.speed = speed
-        
+
 
 class Message():
     '''
@@ -105,7 +69,7 @@ class Message():
         self.message = message
         self.data = data
 
-    
+
     def dump(self):
         message = bytes([self.message])
         if self.data:
@@ -119,16 +83,3 @@ class Message():
 
             message += bytes([state])
         return message
-    
-if __name__ == '__main__':
-    # initialize serial connection
-    connection = SerialConnection()
-
-    # add small delay to give the communication a moment to establish
-    time.sleep(2)
-
-    # send calibration message
-    message = Message(MessageCommand.Calibrate, None)
-    connection.send(message.dump())
-
-    time.sleep(2)
