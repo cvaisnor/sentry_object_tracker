@@ -3,16 +3,18 @@ import numpy as np
 import time
 
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
-from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
+from stepper_gimbal_functions import move_steppers
+from classes import MotorDirection, MotorSpeed, MotorState
 
 
-def track_object(camera_capture,
-                        cropped_object_image,
-                        template_matching_threshold=0.70,
-                        frames_to_average=3,
-                        number_of_objects=0,
-                        gimbal_movement=False):
-    
+def track_object(connection,
+                 camera_capture,
+                 cropped_object_image,
+                 template_matching_threshold=0.70,
+                 frames_to_average=3,
+                 number_of_objects=0,
+                 gimbal_movement=False):
+
     '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the stepper motors. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
 
     # create a video writer object for recording the video
@@ -26,14 +28,16 @@ def track_object(camera_capture,
 
     search_retry_count = 0
 
+    # initialize motor states
+    tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
+    pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
+
     while True:
         # read new frame after cropping the object
         ret, frame = camera_capture.read()
         if ret is False:
             print('Error reading frame')
             continue
-
-        # print(f'Frame capture time: {end - start}')
 
         # perform template matching
         if first_search:
@@ -84,9 +88,6 @@ def track_object(camera_capture,
 
             center_threshold = 50 # number of pixels away from center
 
-            pan_state = MotorState()
-            tilt_state = MotorState()
-
             # case Speed1: return 2000;
             # case Speed2: return 1500;
             # case Speed3: return 1000;
@@ -97,41 +98,39 @@ def track_object(camera_capture,
 
             # if object outside of deadzone, move the steppers
             if abs(difference_x) > center_threshold:
-                pan_state.speed = MotorSpeed.Speed3
-
-                if difference_x > 0:
-                    # print('Moving left')
+                if difference_x > 0: # left
+                    pan_state.speed = MotorSpeed.Speed4
                     pan_state.direction = MotorDirection.Left
-                    # move_pan_axis('left', speed, steps)
-                else:
-                    # print('Moving right')
+                    tilt_state.speed = MotorSpeed.Off
+                    tilt_state.direction = MotorDirection.Zero
+                else: # right
+                    pan_state.speed = MotorSpeed.Speed4
                     pan_state.direction = MotorDirection.Right
-                    # move_pan_axis('right', speed, steps)
+                    tilt_state.speed = MotorSpeed.Off
+                    tilt_state.direction = MotorDirection.Zero
 
             if abs(difference_y) > center_threshold:
-                tilt_state.speed = MotorSpeed.Speed3
 
-                if difference_y > 0:
-                    # print('Moving up')
+                if difference_y > 0: # up
+                    pan_state.speed = MotorSpeed.Off
+                    pan_state.direction = MotorDirection.Zero
+                    tilt_state.speed = MotorSpeed.Speed4
                     tilt_state.direction = MotorDirection.Up
-                    # move_tilt_axis('up', speed, steps)
-                else:
-                    # print('Moving down')
+                else: # down
+                    pan_state.speed = MotorSpeed.Off
+                    pan_state.direction = MotorDirection.Zero
+                    tilt_state.speed = MotorSpeed.Speed4
                     tilt_state.direction = MotorDirection.Down
-                    # move_tilt_axis('down', speed, steps)
 
             # if object inside of deadzone, stop the steppers
-            if abs(difference_x) < center_threshold:
-                # print('Object centered horizontally')
+            if abs(difference_x) < center_threshold: # pan
                 pan_state.speed = MotorSpeed.Off
-                pan_state.direction = MotorDirection.Zero
 
-            if abs(difference_y) < center_threshold:
-                # print('Object centered vertically')
+            if abs(difference_y) < center_threshold: # tilt
                 tilt_state.speed = MotorSpeed.Off
-                tilt_state.direction = MotorDirection.Zero
 
-            set_gimbal_state(pan = pan_state, tilt = tilt_state)
+            # move the steppers
+            move_steppers(connection, pan_state, tilt_state)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
