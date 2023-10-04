@@ -6,11 +6,13 @@ import cv2
 
 from camera_functions import get_cropped_object_image, contour_parser
 from tracking_functions import track_object
-
+from stepper_gimbal_functions import calibrate_steppers, set_neutral
+from classes import SerialConnection
 
 def main():
     '''Main function.'''
-    # arduino device is set in stepper_gimbal_functions.py
+    # initialize serial connection
+    connection = SerialConnection()
 
     camera_capture = cv2.VideoCapture(0)
 
@@ -19,13 +21,20 @@ def main():
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    # camera_capture.set(cv2.CAP_PROP_FPS, 60)
-    # camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     # wait for the Arduino to initialize
     time.sleep(3)
     print('Arduino initialized')
     print('-'*30)
+
+    # send calibration message
+    print('Calibrating...')
+    calibrate_steppers(connection)
+    print('Calibration complete')
+    print('-'*30)
+
     print('Sentry Camera Armed')
     print('-'*30)
     
@@ -83,19 +92,27 @@ def main():
             print('Tracking object')
 
             # switch to tracking object
-            switch_to_motion_detection = track_object(camera_capture,
-                                cropped_object_image,
-                                template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
-                                frames_to_average=FRAMES_TO_AVERAGE,
-                                number_of_objects=number_of_objects,
-                                gimbal_movement=GIMBAL_MOVEMENT)
+            switch_to_motion_detection = track_object(
+                                        connection,
+                                        camera_capture,
+                                        cropped_object_image,
+                                        template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
+                                        frames_to_average=FRAMES_TO_AVERAGE,
+                                        number_of_objects=number_of_objects,
+                                        gimbal_movement=GIMBAL_MOVEMENT
+                                    )
+            
 
             if switch_to_motion_detection:
                 print('Finished tracking object')
+                print('Setting gimbal to neutral position')
+                # set the gimbal to neutral position
+                set_neutral(connection)
                 print()
 
                 # flush the frames in the buffer
-                for i in range(10):
+                print('Flushing frames in buffer')
+                for i in range(60):
                     camera_capture.grab()
 
                 # capture a new background frame
