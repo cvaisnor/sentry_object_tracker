@@ -247,7 +247,7 @@ void setup() {
   pinMode(PAN_DIR_PIN, OUTPUT);
   pinMode(TILT_STEP_PIN, OUTPUT);
   pinMode(TILT_DIR_PIN, OUTPUT);
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   pinMode(PAN_STOP_PIN, INPUT);
   pinMode(TILT_STOP_PIN, INPUT);
@@ -271,8 +271,8 @@ void loop() {
       tiltMotor.moveToNeutral(500);
     } // move the motors
     else if (message.command == MessageCommand::Move) {
-      panMotor.move(100, message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
-      tiltMotor.move(100, message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
+      panMotor.move(50, message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
+      tiltMotor.move(50, message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
     }
   }
 }
