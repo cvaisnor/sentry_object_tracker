@@ -7,8 +7,8 @@ from ultralytics import YOLO
 import math
 
 from camera_functions import get_contours
-# from stepper_gimbal_functions import MotorDirection, MotorSpeed, MotorState, set_gimbal_state
-from classes import calibrate_steppers, set_neutral, move_steppers, MotorDirection, MotorSpeed, MotorState, SerialConnection
+from stepper_gimbal_functions import calibrate_steppers, move_gimbal_with_keypress, read_keypress
+from classes import MotorDirection, MotorSpeed, MotorState, SerialConnection
 
 
 def main():
@@ -19,8 +19,8 @@ def main():
     # initialize the camera
     camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 1280
-    HEIGHT = 720
+    WIDTH = 640
+    HEIGHT = 480
     
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
@@ -51,12 +51,16 @@ def main():
     time.sleep(3)
     print('Arduino initialized')
     print('-'*30)
-    print('Sentry Camera Armed')
-    print('-'*30)
 
     # send calibration message
+    print('Calibrating...')
     calibrate_steppers(connection)
+    print('Calibration complete')
+    print('-'*30)
 
+    print('Sentry Camera Armed')
+    print('-'*30)
+    
     # initialize motor states
     tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
     pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
@@ -117,21 +121,23 @@ def main():
                 # draw a rectangle around the contour
                 cv2.rectangle(current_frame, (x_of_contour, y_of_contour), (x_of_contour + width_of_contour, y_of_contour + height_of_contour), (0, 255, 0), 2)
 
-        keypress = read_keypress()
-
-        move_gimbal(connection, keypress, pan_state, tilt_state)
-
         cv2.imshow("Webcam View", current_frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q') or keypress == ord('q'):
+        # keypress = read_keypress()
+
+        # move_gimbal_with_keypress(connection, keypress, pan_state, tilt_state)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup the camera and close any open windows
+            print('Exiting...')
+            camera_capture.release()
             cv2.destroyAllWindows()
             break
 
         # new background frame
-        if keypress == ord('b'):
-            ret, background_frame = camera_capture.read()
-            print('New background frame')
+        # if keypress == ord('b'):
+        #     ret, background_frame = camera_capture.read()
+        #     print('New background frame')
 
 if __name__ == "__main__":
     main()
