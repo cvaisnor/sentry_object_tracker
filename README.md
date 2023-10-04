@@ -24,14 +24,14 @@ export OPENCV_VIDEOIO_PRIORITY_MSMF=0
 
 **v1**:
 
-<img src="images/v1.jpg" width="30%" height="30%">
+<img src="images/v1.jpg" width="50%" height="50%">
 
 **v2**:
 
-<img src="images/v2.jpg" width="30%" height="30%">
+<img src="images/v2.jpg" width="50%" height="50%">
 
 **v2.2**:
 
-<img src="images/v2_2.jpeg" width="30%" height="30%">
+<img src="images/v2_2.jpeg" width="50%" height="50%">
 
 ---
