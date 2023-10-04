@@ -5,7 +5,7 @@ from enum import IntEnum
 
 class SerialConnection():
     def __init__(self) -> None:
-        self.baudrate = 9600
+        self.baudrate = 115200
         self.port = '/dev/ttyACM0'
         self.timeout = 2
         self.arduino = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
@@ -23,8 +23,8 @@ class MotorDirection(IntEnum):
     One = 1
     Up = 1
     Down = 0
-    # Left = 0
-    # Right = 1
+    Left = 0
+    Right = 1
 
 
 class MotorSpeed(IntEnum):
