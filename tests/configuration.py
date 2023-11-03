@@ -1,40 +1,54 @@
 '''This script configures the gimbal for the video capture and motion detection scripts.'''
-from classes import Servo, Static_Camera, Gimbal
 from adafruit_servokit import ServoKit
-import cv2
+import board
+import busio
 
+import sys
+import tty
+import termios
 
 # set of functions to move the gimbal using the arrow keys
 
 # read the keypresses
 def read_keypress():
-    key = cv2.waitKey(1) & 0xFF
-    return key
+    '''Reads a keypress from the keyboard.'''
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        # set the terminal to raw mode
+        tty.setraw(sys.stdin.fileno())
+        # read a single character
+        ch = sys.stdin.read(1)
+    finally:
+        # restore the terminal to its original state
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    # return the character
+    return ord(ch)
 
 
-def move_gimbal(gimbal, key):
+def move_gimbal(gimbal, key, degrees=1, pan_servo=0, tilt_servo=1, pan_servo_range=[0, 180], tilt_servo_range=[0, 180]):
     if key == ord('w'):
-        gimbal.move_tilt_up(1)
+        move_servo_by_degrees(gimbal, tilt_servo, degrees, tilt_servo_range)
     elif key == ord('s'):
-        gimbal.move_tilt_down(1)
+        move_servo_by_degrees(gimbal, tilt_servo, -degrees, tilt_servo_range)
     elif key == ord('a'):
-        gimbal.move_pan_left(1)
+        move_servo_by_degrees(gimbal, pan_servo, -degrees, pan_servo_range)
     elif key == ord('d'):
-        gimbal.move_pan_right(1)
-    elif key == ord('q'):
-        gimbal.move_pan_left(1)
-        gimbal.move_tilt_up(1)
-    elif key == ord('e'):
-        gimbal.move_pan_right(1)
-        gimbal.move_tilt_up(1)
-    elif key == ord('z'):
-        gimbal.move_pan_left(1)
-        gimbal.move_tilt_down(1)
-    elif key == ord('x'):
-        gimbal.move_pan_right(1)
-        gimbal.move_tilt_down(1)
+        move_servo_by_degrees(gimbal, pan_servo, degrees, pan_servo_range)
+    # elif key == ord('q'):
+    #     gimbal.move
+    # elif key == ord('e'):
+    #     gimbal.move_pan_right(1)
+    #     gimbal.move_tilt_up(1)
+    # elif key == ord('z'):
+    #     gimbal.move_pan_left(1)
+    #     gimbal.move_tilt_down(1)
+    # elif key == ord('x'):
+    #     gimbal.move_pan_right(1)
+    #     gimbal.move_tilt_down(1)
     elif key == ord('n'):
-        gimbal.set_neutral()
+        set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
 
 def set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range):
     '''Sets the servos to the neutral position.'''
@@ -74,19 +88,35 @@ def move_servo_by_degrees(gimbal, servo, degrees, servo_range):
 
 def main():
     # Create an object to access the ServoKit library
-    gimbal = ServoKit(channels=16) # using PCA9685
+    # Create an I2C device
+    i2c = busio.I2C(board.SCL, board.SDA)
+
+    # create a kit object
+    gimbal = ServoKit(channels=16, i2c=i2c)
 
     pan_servo = 0 # channel 0
     pan_servo_range = [0, 180]
 
     tilt_servo = 1 # channel 1
-    tilt_servo_range = [90, 160]
+    tilt_servo_range = [0, 180]
 
+    # set the servos to the neutral position
+    set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
+
+    print('Starting the gimbal control loop')
     while True:
-
+    
         # read the keypresses
         key = read_keypress()
+        
+        if key == 255:
+            continue
+        
         if key == ord('q'):
             break
+        
         else:
-            move_gimbal(gimbal, key)
+            move_gimbal(gimbal, key, degrees=1, pan_servo=0, tilt_servo=1, pan_servo_range=[0, 180], tilt_servo_range=[0, 180])
+
+if __name__ == '__main__':
+    main()

@@ -18,12 +18,22 @@ i2c = busio.I2C(board.SCL, board.SDA)
 gimbal = ServoKit(channels=16, i2c=i2c)
 
 pan_servo = 0 # channel 0
-pan_servo_range = [0, 180]
 
 tilt_servo = 1 # channel 1
-tilt_servo_range = [90, 160]
 
 # test the servos
-gimbal.servo[pan_servo].angle = 60
-gimbal.servo[tilt_servo].angle = 120
+# gimbal.servo[pan_servo].angle = 0
+# gimbal.servo[tilt_servo].angle = 0
 
+
+# get the range of the servos
+pan_servo_range = gimbal.servo[pan_servo].actuation_range
+tilt_servo_range = gimbal.servo[tilt_servo].actuation_range
+
+# print the range of the servos
+print("Pan Servo Range: ", pan_servo_range)
+print("Tilt Servo Range: ", tilt_servo_range)
+
+# go to the neutral position
+gimbal.servo[pan_servo].angle = 90
+gimbal.servo[tilt_servo].angle = 90

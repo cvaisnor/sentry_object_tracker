@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from adafruit_servokit import ServoKit
 import time
-from classes import IdentifiedObject
+from archive.classes import IdentifiedObject
 
 # Create an object to access the ServoKit library
 gimbal = ServoKit(channels=16) # using PCA9685

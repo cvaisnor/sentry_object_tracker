@@ -7,14 +7,11 @@ from ultralytics import YOLO
 import math
 
 from camera_functions import get_contours
-from stepper_gimbal_functions import calibrate_steppers, move_gimbal_with_keypress, read_keypress
-from classes import MotorDirection, MotorSpeed, MotorState, SerialConnection
 
 
 def main():
     '''Main function.'''
-    # initialize serial connection
-    connection = SerialConnection()
+
 
     # initialize the camera
     camera_capture = cv2.VideoCapture(0)
@@ -47,23 +44,10 @@ def main():
               "teddy bear", "hair drier", "toothbrush"
               ]
 
-    # wait for the Arduino to initialize
-    time.sleep(3)
-    print('Arduino initialized')
-    print('-'*30)
 
-    # send calibration message
-    print('Calibrating...')
-    calibrate_steppers(connection)
-    print('Calibration complete')
-    print('-'*30)
 
     print('Sentry Camera Armed')
     print('-'*30)
-    
-    # initialize motor states
-    tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
-    pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
 
     ret, background_frame = camera_capture.read()
     if ret is False:

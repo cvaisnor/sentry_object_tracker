@@ -1,39 +1,44 @@
 '''This script uses a pan and tilt servo to control a gimbal with camera attached to it. Once it detects motion, it draws a box around it and uses the cv2.matchTemplate function to find the center of the object. It then moves the gimbal to the center of the object.'''
 
 # import the necessary packages
-import time
 import cv2
+import board
+import busio
+from adafruit_servokit import ServoKit
 
 from camera_functions import get_cropped_object_image, contour_parser
-from tracking_functions import track_object
-from stepper_gimbal_functions import calibrate_steppers, set_neutral
-from classes import SerialConnection
+from servo_gimbal_functions import set_servos_neutral
+from tracking_functions import track_object_servos
+
 
 def main():
     '''Main function.'''
-    # initialize serial connection
-    connection = SerialConnection()
+
+    # Create an I2C device
+    i2c = busio.I2C(board.SCL, board.SDA)
+
+    # create a kit object
+    gimbal = ServoKit(channels=16, i2c=i2c)
+
+    pan_servo = 0 # channel 0
+    pan_servo_range = [0, 180]
+
+    tilt_servo = 1 # channel 1
+    tilt_servo_range = [0, 180]
+
+    # set the servos to the neutral position
+    print('Setting gimbal to neutral position')
+    set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
+    print()
 
     camera_capture = cv2.VideoCapture(0)
-
-    WIDTH = 1280
-    HEIGHT = 720
+    WIDTH = 640
+    HEIGHT = 480
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    camera_capture.set(cv2.CAP_PROP_FPS, 30)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-
-    # wait for the Arduino to initialize
-    time.sleep(3)
-    print('Arduino initialized')
-    print('-'*30)
-
-    # send calibration message
-    print('Calibrating...')
-    calibrate_steppers(connection)
-    print('Calibration complete')
-    print('-'*30)
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -92,27 +97,31 @@ def main():
             print('Tracking object')
 
             # switch to tracking object
-            switch_to_motion_detection = track_object(
-                                        connection,
-                                        camera_capture,
-                                        cropped_object_image,
-                                        template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
-                                        frames_to_average=FRAMES_TO_AVERAGE,
-                                        number_of_objects=number_of_objects,
-                                        gimbal_movement=GIMBAL_MOVEMENT
-                                    )
+            switch_to_motion_detection = track_object_servos(
+                                            camera_capture,
+                                            cropped_object_image,
+                                            gimbal,
+                                            pan_servo,
+                                            tilt_servo,
+                                            pan_servo_range,
+                                            tilt_servo_range,
+                                            template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
+                                            frames_to_average=FRAMES_TO_AVERAGE,
+                                            number_of_objects=number_of_objects,
+                                            gimbal_movement=GIMBAL_MOVEMENT
+                                        )
             
 
             if switch_to_motion_detection:
                 print('Finished tracking object')
                 print('Setting gimbal to neutral position')
                 # set the gimbal to neutral position
-                set_neutral(connection)
+                set_servos_neutral(gimbal, pan_servo, tilt_servo, pan_servo_range, tilt_servo_range)
                 print()
 
                 # flush the frames in the buffer
                 print('Flushing frames in buffer')
-                for i in range(60):
+                for i in range(30):
                     camera_capture.grab()
 
                 # capture a new background frame

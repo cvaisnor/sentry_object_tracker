@@ -88,7 +88,10 @@ def track_object_servos(camera_capture,
                  tilt_servo,
                  pan_servo_range,
                  tilt_servo_range,
-                 template_matching_threshold=0.70):
+                 template_matching_threshold=0.70,
+                 frames_to_average=4,
+                 number_of_objects=0,
+                 gimbal_movement=True):
     
     '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the servos. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
 

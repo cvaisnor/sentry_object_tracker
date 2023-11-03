@@ -1,21 +1,23 @@
 import cv2
 import numpy as np
-import time
 
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
-from stepper_gimbal_functions import move_steppers
-from classes import MotorDirection, MotorSpeed, MotorState
+from servo_gimbal_functions import move_pan_servo, move_tilt_servo
 
 
-def track_object(connection,
-                 camera_capture,
-                 cropped_object_image,
-                 template_matching_threshold=0.70,
-                 frames_to_average=3,
-                 number_of_objects=0,
-                 gimbal_movement=False):
+def track_object_servos(camera_capture,
+                        cropped_object_image,
+                        gimbal,
+                        pan_servo,
+                        tilt_servo,
+                        pan_servo_range,
+                        tilt_servo_range,
+                        template_matching_threshold,
+                        frames_to_average,
+                        number_of_objects,
+                        gimbal_movement):
 
-    '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the stepper motors. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
+    '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the servos. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
 
     # create a video writer object for recording the video
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -27,10 +29,6 @@ def track_object(connection,
     first_search = True
 
     search_retry_count = 0
-
-    # initialize motor states
-    tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
-    pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
 
     while True:
         # read new frame after cropping the object
@@ -64,7 +62,7 @@ def track_object(connection,
             # first_search = True # change to True to search the entire frame
             search_retry_count += 1 # increment the search retry count
 
-        if search_retry_count > 6: # if the object is not found after 3 retries, stop searching
+        if search_retry_count > 6: # if the object is not found after # retries, stop searching
             # video_writer.release()
             print('Object not found after 3 retries')
             cv2.destroyAllWindows()
@@ -76,7 +74,6 @@ def track_object(connection,
 
         # display the frame with the rectangle around the match, add text = number of objects detected
         cv2.putText(frame_copy, f'Object #{number_of_objects}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.imshow("Now tracking", frame_copy)
 
         # display the new cropped object image (debugging)
         # cv2.imshow("Running Average", cv2.resize(cropped_object_image, (640, 480)))
@@ -86,51 +83,17 @@ def track_object(connection,
             difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
             difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
-            center_threshold = 50 # number of pixels away from center
+            # the larger the difference, the faster the servos move
+            servo_adjustment_speed = int(abs(difference_x) / 14) + 1
+            if servo_adjustment_speed > 10:
+                servo_adjustment_speed = 10 # limit the speed
 
-            # case Speed1: return 2000;
-            # case Speed2: return 1500;
-            # case Speed3: return 1000;
-            # case Speed4: return 500;
-            # case Speed5: return 375;
-            # case Speed6: return 250;
-            # case Speed7: return 175;
-
-            # if object outside of deadzone, move the steppers
-            if abs(difference_x) > center_threshold:
-                if difference_x > 0: # left
-                    pan_state.speed = MotorSpeed.Speed4
-                    pan_state.direction = MotorDirection.Left
-                    tilt_state.speed = MotorSpeed.Off
-                    tilt_state.direction = MotorDirection.Zero
-                else: # right
-                    pan_state.speed = MotorSpeed.Speed4
-                    pan_state.direction = MotorDirection.Right
-                    tilt_state.speed = MotorSpeed.Off
-                    tilt_state.direction = MotorDirection.Zero
-
-            if abs(difference_y) > center_threshold:
-
-                if difference_y > 0: # up
-                    pan_state.speed = MotorSpeed.Off
-                    pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed4
-                    tilt_state.direction = MotorDirection.Up
-                else: # down
-                    pan_state.speed = MotorSpeed.Off
-                    pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed4
-                    tilt_state.direction = MotorDirection.Down
-
-            # if object inside of deadzone, stop the steppers
-            if abs(difference_x) < center_threshold: # pan
-                pan_state.speed = MotorSpeed.Off
-
-            if abs(difference_y) < center_threshold: # tilt
-                tilt_state.speed = MotorSpeed.Off
-
-            # move the steppers
-            move_steppers(connection, pan_state, tilt_state)
+            # if object outside of deadzone, move the servos
+            if abs(difference_x) > 10:
+                move_pan_servo(gimbal, pan_servo, pan_servo_range, servo_adjustment_speed, difference_x)
+            
+            if abs(difference_y) > 10:
+                move_tilt_servo(gimbal, tilt_servo, tilt_servo_range, servo_adjustment_speed, difference_y)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup

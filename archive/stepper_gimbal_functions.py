@@ -3,7 +3,7 @@ import sys
 import tty
 import termios
 
-from classes import SerialConnection, Message, MessageCommand, MotorState, MotorDirection, MotorSpeed
+from archive.classes import SerialConnection, Message, MessageCommand, MotorState, MotorDirection, MotorSpeed
 
 
 def calibrate_steppers(connection: SerialConnection):
