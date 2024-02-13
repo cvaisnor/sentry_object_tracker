@@ -4,8 +4,8 @@ import math
 
 # start webcam
 cap = cv2.VideoCapture(0)
-cap.set(3, 640)
-cap.set(4, 480)
+cap.set(3, 1920)
+cap.set(4, 1080)
 
 # model
 model = YOLO("yolov8n.pt")
