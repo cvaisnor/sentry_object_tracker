@@ -9,7 +9,7 @@ from classes import SerialConnection, Message, MessageCommand, MotorState, Motor
 def calibrate_steppers(connection: SerialConnection):
     message = Message(MessageCommand.Calibrate, None)
     connection.send(message.dump())
-    time.sleep(16)
+    time.sleep(35)
 
 
 def set_neutral(connection: SerialConnection):

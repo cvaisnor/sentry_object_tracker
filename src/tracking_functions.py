@@ -86,7 +86,7 @@ def track_object(connection,
             difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
             difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
-            center_threshold = 50 # number of pixels away from center
+            center_threshold = 300 # number of pixels away from center
 
             # case Speed1: return 2000;
             # case Speed2: return 1500;
@@ -99,12 +99,14 @@ def track_object(connection,
             # if object outside of deadzone, move the steppers
             if abs(difference_x) > center_threshold:
                 if difference_x > 0: # left
-                    pan_state.speed = MotorSpeed.Speed4
+                    print('Moving left')
+                    pan_state.speed = MotorSpeed.Speed1
                     pan_state.direction = MotorDirection.Left
                     tilt_state.speed = MotorSpeed.Off
                     tilt_state.direction = MotorDirection.Zero
                 else: # right
-                    pan_state.speed = MotorSpeed.Speed4
+                    print('Moving right')
+                    pan_state.speed = MotorSpeed.Speed1
                     pan_state.direction = MotorDirection.Right
                     tilt_state.speed = MotorSpeed.Off
                     tilt_state.direction = MotorDirection.Zero
@@ -112,25 +114,29 @@ def track_object(connection,
             if abs(difference_y) > center_threshold:
 
                 if difference_y > 0: # up
+                    print('Moving up')
                     pan_state.speed = MotorSpeed.Off
                     pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed4
+                    tilt_state.speed = MotorSpeed.Speed1
                     tilt_state.direction = MotorDirection.Up
                 else: # down
+                    print('Moving down')
                     pan_state.speed = MotorSpeed.Off
                     pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed4
+                    tilt_state.speed = MotorSpeed.Speed1
                     tilt_state.direction = MotorDirection.Down
 
             # if object inside of deadzone, stop the steppers
             if abs(difference_x) < center_threshold: # pan
+                print('Stopping pan')
                 pan_state.speed = MotorSpeed.Off
 
             if abs(difference_y) < center_threshold: # tilt
+                print('Stopping tilt')
                 tilt_state.speed = MotorSpeed.Off
 
             # move the steppers
-            move_steppers(connection, pan_state, tilt_state)
+            # move_steppers(connection, pan_state, tilt_state)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup

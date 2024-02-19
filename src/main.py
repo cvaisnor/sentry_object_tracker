@@ -16,8 +16,8 @@ def main():
 
     camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 1280
-    HEIGHT = 720
+    WIDTH = 1920
+    HEIGHT = 1080
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
@@ -44,9 +44,9 @@ def main():
         return
 
     CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
-    MIN_AREA = 5 # minimum area of the contour
+    MIN_AREA = 100 # minimum area of the contour
     MAX_AREA = 1000 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.80 # threshold for template matching
+    TEMPLATE_MATCHING_THRESHOLD = 0.90 # threshold for template matching
     OBJECT_BUFFER = 0 # number of pixels to add to each side of the contour when cropping the object
     FRAMES_TO_AVERAGE = 4 # number of frames to average when tracking the object
     GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
@@ -60,7 +60,7 @@ def main():
             continue
 
         # display the background frame
-        cv2.imshow("View", background_frame)
+        cv2.imshow("View", current_frame)
 
         contour_found, x, y, w, h = contour_parser(current_frame,
                                                     background_frame,
@@ -109,12 +109,15 @@ def main():
                 # set the gimbal to neutral position
                 set_neutral(connection)
                 print()
+                # wait 5 seconds before capturing a new background frame
+                print('Waiting 5 seconds before capturing a new background frame')
+                time.sleep(5)
 
                 # flush the frames in the buffer
                 print('Flushing frames in buffer')
-                for i in range(60):
+                for i in range(120):
                     camera_capture.grab()
-
+                
                 # capture a new background frame
                 ret, background_frame = camera_capture.read()
                 print('New background frame captured')
