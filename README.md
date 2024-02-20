@@ -34,4 +34,7 @@ export OPENCV_VIDEOIO_PRIORITY_MSMF=0
 
 <img src="images/v2_2.jpeg" width="50%" height="50%">
 
+**v3**:
+
+<img src="images/v3.jpeg" width="50%" height="50%">
 ---
