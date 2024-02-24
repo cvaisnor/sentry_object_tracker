@@ -89,7 +89,7 @@ class StepperMotor {
         unsafeMove(1, MotorDirection::Direction0, 500);
         endHit = checkEndStops();
         if(endHit) {
-          Serial.println("Left endstop hit during left movement");
+          // Serial.println("Left endstop hit during left movement");
           
           // move back # steps to get off the end stop
           unsafeMove(BUFFER, MotorDirection::Direction1, 500);
@@ -100,14 +100,14 @@ class StepperMotor {
       endHit = false;
       int steps = 0;
 
-      Serial.println("Switching directions");
+      // Serial.println("Switching directions");
       // Move to the right end, counting steps
       while(!endHit) {
         unsafeMove(1, MotorDirection::Direction1, 500);
         steps++;
         endHit = checkEndStops();
         if(endHit) {
-          Serial.println("Right endstop hit during right movement");
+          // Serial.println("Right endstop hit during right movement");
           
           // move back # steps to get off the end stop
           unsafeMove(BUFFER, MotorDirection::Direction0, 500);
@@ -231,11 +231,26 @@ Message readMessage() {
     return Message(MessageCommand::Neutral);
   }
   else if (command == 2) {
-    while (!Serial.available()) ;  // wait until next byte arrives
+    while (!Serial.available()); // wait until next byte arrives
     command = Serial.read();
     return Message(MessageCommand::Move, MotorsState(command));
   }
 }
+
+// struct for acknowledgement message
+enum class Acknowledgement : uint8_t {
+  Calibrate = 0,
+  Neutral = 1,
+  Move = 2
+};
+
+
+// struct for message status
+enum class MessageStatus : uint8_t {
+  Success = 0,
+  Error = 1
+};
+
 
 // initialize the pan and tilt motors
 StepperMotor panMotor = StepperMotor(PAN_STEP_PIN, PAN_DIR_PIN, PAN_STOP_PIN);
@@ -263,16 +278,33 @@ void loop() {
     Message message = readMessage();
     // calibrate the motors
     if (message.command == MessageCommand::Calibrate) {
+      Serial.write((uint8_t)Acknowledgement::Calibrate);
       panMotor.calibrate();
       tiltMotor.calibrate();
+      Serial.write((uint8_t)MessageStatus::Success);
     } // move to neutral position
     else if (message.command == MessageCommand::Neutral) {
+      Serial.write((uint8_t)Acknowledgement::Neutral);
       panMotor.moveToNeutral(500);
       tiltMotor.moveToNeutral(500);
+      Serial.write((uint8_t)MessageStatus::Success);
     } // move the motors
     else if (message.command == MessageCommand::Move) {
       panMotor.move(50, message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
       tiltMotor.move(50, message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
+
+      // variable for number of steps
+      // variable for current motor state
+      // loop(when message command recieved)
+        // update # of steps to int
+        // update current motor state to new motor state
+        // if calibrate/neutral
+          // set number of steps to 0
+        
+        // if number of steps is > 0:
+          // run pan/tilt motor move function (less steps than 50 possibly)
+          // decrement number of steps by same number
+
     }
   }
 }
