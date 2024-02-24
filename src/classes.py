@@ -7,15 +7,15 @@ class SerialConnection():
     def __init__(self) -> None:
         self.baudrate = 115200
         self.port = '/dev/ttyACM0'
-        self.timeout = 2
+        self.timeout = None
         self.arduino = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
 
     def send(self, message):
         self.arduino.write(message)
 
 
-    def receive(self):
-        return self.arduino.readline()
+    def read(self):
+        return self.arduino.read()
 
 
 class MotorDirection(IntEnum):
@@ -82,4 +82,9 @@ class Message():
             state |= tilt.speed & 0b111
 
             message += bytes([state])
+        
+        # convert message to string for printing
+        # message format: 
+        # print(f'Message: {message.hex()}')
+        
         return message
