@@ -9,18 +9,43 @@ from classes import SerialConnection, Message, MessageCommand, MotorState, Motor
 def calibrate_steppers(connection: SerialConnection):
     message = Message(MessageCommand.Calibrate, None)
     connection.send(message.dump())
-    time.sleep(35)
+    # read the response from the Arduino
+    ack_response = connection.read()
+    if ack_response != b'\x00':
+        raise Exception('Calibration failed')
 
+    # read message status
+    status_response = connection.read()
+    if status_response != b'\x00':
+        raise Exception('Calibration failed')
+    
 
 def set_neutral(connection: SerialConnection):
     message = Message(MessageCommand.SetNeutral, None)
     connection.send(message.dump())
-    time.sleep(3)
+    # read the response from the Arduino
+    ack_response = connection.read()
+    if ack_response != b'\x01':
+        raise Exception('Setting neutral failed')
+    
+    # read message status
+    status_response = connection.read()
+    if status_response != b'\x00':
+        raise Exception('Setting neutral failed')
 
 
 def move_steppers(connection: SerialConnection, pan: MotorState, tilt: MotorState):
     message = Message(MessageCommand.MoveStepper, (pan, tilt))
     connection.send(message.dump())
+    # read the response from the Arduino
+    # ack_response = connection.read()
+    # if ack_response != b'\x02':
+    #     raise Exception('Moving steppers failed')
+    
+    # read message status
+    # status_response = connection.read()
+    # if status_response != b'\x00':
+    #     raise Exception('Moving steppers failed')
 
 
 def read_keypress() -> int:
