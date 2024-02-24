@@ -19,9 +19,17 @@ def main():
     WIDTH = 1920
     HEIGHT = 1080
 
+    CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
+    MIN_AREA = 50 # minimum area of the contour
+    MAX_AREA = 2000 # maximum area of the contour
+    TEMPLATE_MATCHING_THRESHOLD = 0.70 # threshold for template matching
+    OBJECT_BUFFER = 10 # number of pixels to add to each side of the contour when cropping the object
+    FRAMES_TO_AVERAGE = 1 # number of frames to average when tracking the object
+    GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
+
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    camera_capture.set(cv2.CAP_PROP_FPS, 60)
+    camera_capture.set(cv2.CAP_PROP_FPS, 30)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     # wait for the Arduino to initialize
@@ -30,10 +38,11 @@ def main():
     print('-'*30)
 
     # send calibration message
-    print('Calibrating...')
-    calibrate_steppers(connection)
-    print('Calibration complete')
-    print('-'*30)
+    if GIMBAL_MOVEMENT:
+        print('Calibrating...')
+        calibrate_steppers(connection)
+        print('Calibration complete')
+        print('-'*30)
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -42,14 +51,6 @@ def main():
     if ret is False:
         print('Error reading first background frame')
         return
-
-    CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
-    MIN_AREA = 100 # minimum area of the contour
-    MAX_AREA = 1000 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.90 # threshold for template matching
-    OBJECT_BUFFER = 0 # number of pixels to add to each side of the contour when cropping the object
-    FRAMES_TO_AVERAGE = 4 # number of frames to average when tracking the object
-    GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
 
     number_of_objects = 0 # number of objects detected
     while True:
@@ -80,18 +81,21 @@ def main():
 
             cropped_object_image = get_cropped_object_image(current_frame, x, y, w, h) # crop the object from the current frame
 
+            # draw a rectangle around the object on a copy of the frame
+            current_frame_copy = current_frame.copy()
+            cv2.rectangle(current_frame_copy, (x, y), (x+w, y+h), (0, 255, 0), 2)
+
             # filename to save the captured object image
             filename = f'captured_objects/captured_object_{number_of_objects}.jpg'
 
-            # save the cropped object image to /captured_objects
-            cv2.imwrite(filename, cropped_object_image)
+            # save the frame with the object rectangle drawn on it
+            cv2.imwrite(filename, current_frame_copy)
 
             # display the cropped object image at a larger size (debugging)
             # cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
 
-            print('Tracking object')
-
             # switch to tracking object
+            print('Tracking object')
             switch_to_motion_detection = track_object(
                                         connection,
                                         camera_capture,
@@ -102,7 +106,6 @@ def main():
                                         gimbal_movement=GIMBAL_MOVEMENT
                                     )
             
-
             if switch_to_motion_detection:
                 print('Finished tracking object')
                 print('Setting gimbal to neutral position')

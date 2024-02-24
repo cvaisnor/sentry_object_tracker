@@ -45,7 +45,9 @@ def track_object(connection,
             first_search = False
         else:
             # search for the template match using a less expensive method
-            max_val, max_loc = check_image_match_local(frame, cropped_object_image, last_loc=max_loc, obj_padding=50)
+            max_val, max_loc = check_image_match_local(frame, cropped_object_image, last_loc=max_loc, obj_padding=200)
+
+        # print('Max Val:', max_val)
 
         # condition to check object is matched or not
         if max_val > template_matching_threshold:
@@ -128,15 +130,15 @@ def track_object(connection,
 
             # if object inside of deadzone, stop the steppers
             if abs(difference_x) < center_threshold: # pan
-                print('Stopping pan')
+                print('no pan')
                 pan_state.speed = MotorSpeed.Off
 
             if abs(difference_y) < center_threshold: # tilt
-                print('Stopping tilt')
+                print('no tilt')
                 tilt_state.speed = MotorSpeed.Off
 
             # move the steppers
-            # move_steppers(connection, pan_state, tilt_state)
+            move_steppers(connection, pan_state, tilt_state)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
