@@ -14,8 +14,7 @@ export BLINKA_FT232H='1'
 
 Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select() timeout" error:
 ```bash
-sudo rmmod uvcvideo
-sudo modprobe uvcvideo nodrop=1 timeout=5000
+sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000 && python main.py
 ```
 (possible other fix):
 ```bash
