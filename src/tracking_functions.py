@@ -4,7 +4,7 @@ import time
 
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
 from stepper_gimbal_functions import move_steppers
-from classes import MotorDirection, MotorSpeed, MotorState
+from classes import MotorDirection, MotorSpeed, MotorState, SerialConnection, SerialMessagesQueue
 
 
 def track_object(connection,
@@ -13,7 +13,8 @@ def track_object(connection,
                  template_matching_threshold=0.70,
                  frames_to_average=3,
                  number_of_objects=0,
-                 gimbal_movement=False):
+                 gimbal_movement=False,
+                 serial_queue=None):
 
     '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the stepper motors. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
 
@@ -100,13 +101,13 @@ def track_object(connection,
             if abs(difference_x) > center_threshold:
                 if difference_x > 0: # left
                     # print('Moving left')
-                    pan_state.speed = MotorSpeed.Speed6
+                    pan_state.speed = MotorSpeed.Speed5
                     pan_state.direction = MotorDirection.Left
                     tilt_state.speed = MotorSpeed.Off
                     tilt_state.direction = MotorDirection.Zero
                 else: # right
                     # print('Moving right')
-                    pan_state.speed = MotorSpeed.Speed6
+                    pan_state.speed = MotorSpeed.Speed5
                     pan_state.direction = MotorDirection.Right
                     tilt_state.speed = MotorSpeed.Off
                     tilt_state.direction = MotorDirection.Zero
@@ -136,7 +137,7 @@ def track_object(connection,
                 tilt_state.speed = MotorSpeed.Off
 
             # move the steppers
-            move_steppers(connection, pan_state, tilt_state)
+            move_steppers(connection, pan_state, tilt_state, serial_queue)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup

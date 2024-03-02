@@ -3,11 +3,12 @@
 # import the necessary packages
 import time
 import cv2
+from multiprocessing import Process
 
 from camera_functions import get_cropped_object_image, contour_parser
 from tracking_functions import track_object
 from stepper_gimbal_functions import calibrate_steppers, set_neutral
-from classes import SerialConnection
+from classes import SerialConnection, SerialMessagesQueue
 
 def main():
     '''Main function.'''
@@ -29,11 +30,13 @@ def main():
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    camera_capture.set(cv2.CAP_PROP_FPS, 30)
+    camera_capture.set(cv2.CAP_PROP_FPS, 60)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
+    assert camera_capture.isOpened(), 'Camera not found'
+
     # wait for the Arduino to initialize
-    time.sleep(3)
+    time.sleep(2)
     print('Arduino initialized')
     print('-'*30)
 
@@ -43,6 +46,12 @@ def main():
         calibrate_steppers(connection)
         print('Calibration complete')
         print('-'*30)
+        # spin up the SerialMessagesQueue
+        serial_queue = SerialMessagesQueue(connection)
+        serial_queue_process = Process(target=serial_queue.start, args=())
+        serial_queue_process.start()
+        print('Serial queue process started')
+        print('-'*30)
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -50,6 +59,8 @@ def main():
     ret, background_frame = camera_capture.read()
     if ret is False:
         print('Error reading first background frame')
+        serial_queue_process.terminate()
+        camera_capture.release()
         return
 
     number_of_objects = 0 # number of objects detected
@@ -103,7 +114,8 @@ def main():
                                         template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
                                         frames_to_average=FRAMES_TO_AVERAGE,
                                         number_of_objects=number_of_objects,
-                                        gimbal_movement=GIMBAL_MOVEMENT
+                                        gimbal_movement=GIMBAL_MOVEMENT,
+                                        serial_queue=serial_queue
                                     )
             
             if switch_to_motion_detection:
@@ -131,6 +143,8 @@ def main():
             camera_capture.release()
             cv2.destroyAllWindows()
             print('Closing Program')
+            # complete the serial queue process
+            serial_queue_process.terminate()
             break
 
 
