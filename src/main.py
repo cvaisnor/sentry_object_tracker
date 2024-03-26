@@ -1,40 +1,32 @@
 '''This script uses a HDMI video feed and gimbal controlled by Visca over IP'''
 
 # import the necessary packages
-import time
 import cv2
 from multiprocessing import Process
-from camera_functions import get_cropped_object_image, contour_parser
+from camera_functions import get_cropped_object_image, contour_parser, create_trackbar_window, read_trackbar_values, get_contours
 from tracking_functions import track_object
 from visca_over_ip import Camera
-
 
 def main():
     '''Main function.'''
 
-    camera_capture = cv2.VideoCapture(0)
     gimbal = Camera('10.42.0.37')  # camera IP or hostname
-
+    camera_capture = cv2.VideoCapture(0)
+    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')) # codec
     WIDTH = camera_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
     HEIGHT = camera_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    pan_pos, tilt_pos = 0, 0
 
-    CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
-    MIN_AREA = 10 # minimum area of the contour
-    MAX_AREA = 10000 # maximum area of the contour
-    TEMPLATE_MATCHING_THRESHOLD = 0.70 # threshold for template matching
-    OBJECT_BUFFER = 10 # number of pixels to add to each side of the contour when cropping the object
-    FRAMES_TO_AVERAGE = 1 # number of frames to average when tracking the object
-    GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
-    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    gimbal_movement = False # set to True to track the object with the gimbal
 
     assert camera_capture.isOpened(), 'Camera not found'
 
-    # send calibration message
-    if GIMBAL_MOVEMENT:
+    create_trackbar_window(gimbal_movement=gimbal_movement)
+
+    if gimbal_movement:
         print('Setting gimbal to home position')
         gimbal.pantilt_home()
-        pan_pos, tilt_pos = gimbal.get_pantilt_position()
-        print(f'Pan: {pan_pos}, Tilt: {tilt_pos}')
+        pan_pos, tilt_pos = gimbal.get_pantilt_position() # 0, 0 in degrees
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -47,45 +39,42 @@ def main():
 
     number_of_objects = 0 # number of objects detected
     while True:
-        # capture another frame
-        ret, current_frame = camera_capture.read()
+        contour_threshold_value, min_area, max_area, template_matching_threshold, pixel_buffer, frames_to_average, gimbal_movement = read_trackbar_values()
+
+        ret, current_frame = camera_capture.read() # capture a frame
         if ret is False:
             print('Error reading frame')
             continue
 
-        # display the background frame
-        cv2.imshow("View", current_frame)
+        current_frame_copy = current_frame.copy() # copy the frame to draw on
+        current_frame_copy_object = current_frame.copy() # copy the frame to draw on
 
-        contour_found, x, y, w, h = contour_parser(current_frame,
-                                                    background_frame,
-                                                    CONTOUR_THRESHOLD_VALUE,
-                                                    MIN_AREA,
-                                                    MAX_AREA,
-                                                    frame_width=WIDTH,
-                                                    frame_height=HEIGHT)
+        # showing parameters on the frame
+        cv2.rectangle(current_frame_copy, (int(current_frame.shape[1]/2 - min_area/2), int(current_frame.shape[0]/2 - min_area/2)), (int(current_frame.shape[1]/2 + min_area/2), int(current_frame.shape[0]/2 + min_area/2)), (0, 255, 0), 2)
+        cv2.rectangle(current_frame_copy, (int(current_frame.shape[1]/2 - max_area/2), int(current_frame.shape[0]/2 - max_area/2)), (int(current_frame.shape[1]/2 + max_area/2), int(current_frame.shape[0]/2 + max_area/2)), (0, 0, 255), 2)
+
+        contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame, threshold_value=contour_threshold_value)
+        
+        # display the frames
+        cv2.imshow("View", current_frame_copy)
+        cv2.imshow("Threshold", cv2.resize(threshold_frame, (int(WIDTH/2), int(HEIGHT/2)))) # half size
+        cv2.imshow("Difference", cv2.resize(difference_frame, (int(WIDTH/2), int(HEIGHT/2)))) # half size
+
+        contour_found, x, y, w, h = contour_parser(contours, min_area, max_area, frame_width=WIDTH, frame_height=HEIGHT)
         
         if contour_found:
             number_of_objects += 1
             # add pixels to each side of the contour to get a buffer
-            x -= OBJECT_BUFFER
-            y -= OBJECT_BUFFER
-            w += 2*OBJECT_BUFFER
-            h += 2*OBJECT_BUFFER
+            x -= pixel_buffer; y -= pixel_buffer; w += 2*pixel_buffer; h += 2*pixel_buffer
 
             cropped_object_image = get_cropped_object_image(current_frame, x, y, w, h) # crop the object from the current frame
 
-            # draw a rectangle around the object on a copy of the frame
-            current_frame_copy = current_frame.copy()
-            cv2.rectangle(current_frame_copy, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.rectangle(current_frame_copy_object, (x, y), (x+w, y+h), (0, 255, 0), 2) # rectangle around the object in saved frame
 
-            # filename to save the captured object image
-            filename = f'captured_objects/captured_object_{number_of_objects}.jpg'
+            filename = f'captured_objects/captured_object_{number_of_objects}.jpg' # filename to save the captured object image
 
             # save the frame with the object rectangle drawn on it
-            cv2.imwrite(filename, current_frame_copy)
-
-            # display the cropped object image at a larger size (debugging)
-            # cv2.imshow("Tracking Object (original)", cv2.resize(cropped_object_image, (640, 480)))
+            cv2.imwrite(filename, current_frame_copy_object)
 
             # switch to tracking object
             print('Tracking object')
@@ -95,18 +84,18 @@ def main():
                                         tilt_pos,
                                         camera_capture,
                                         cropped_object_image,
-                                        template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
-                                        frames_to_average=FRAMES_TO_AVERAGE,
+                                        template_matching_threshold=template_matching_threshold,
+                                        frames_to_average=frames_to_average,
                                         number_of_objects=number_of_objects,
-                                        gimbal_movement=GIMBAL_MOVEMENT,
+                                        gimbal_movement=gimbal_movement,
                                     )
             
             if switch_to_motion_detection:
                 print('Finished tracking object')
-                print('Setting gimbal to home position')
-                gimbal.pantilt_home()
-                pan_pos, tilt_pos = gimbal.get_pantilt_position()
-                time.sleep(2)
+                if gimbal_movement:
+                    print('Setting gimbal to home position')
+                    gimbal.pantilt_home()
+                    pan_pos, tilt_pos = gimbal.get_pantilt_position()
 
                 # flush the frames in the buffer
                 print('Flushing frames in buffer')
@@ -116,6 +105,7 @@ def main():
                 # capture a new background frame
                 ret, background_frame = camera_capture.read()
                 print('New background frame captured')
+                print()
                 continue
 
         if (contour_found and not switch_to_motion_detection) or cv2.waitKey(1) & 0xFF == ord('q'):

@@ -55,14 +55,14 @@ def track_object(gimbal,
             # take the average of all object images in the list
             cropped_object_image = np.average(all_cropped_objects, axis=0).astype(np.uint8)
         elif max_val < template_matching_threshold - 0.1:
-            print('Object not found, retrying')
+            # print('Object not found, retrying')
             # first_search = True # change to True to search the entire frame
             search_retry_count += 1 # increment the search retry count
 
         if search_retry_count > 6: # if the object is not found after 3 retries, stop searching
             # video_writer.release()
             print('Object not found after 3 retries')
-            cv2.destroyAllWindows()
+            cv2.destroyWindow("Now tracking")
             return True
             
         # draw a rectangle around the match on a copy of the current frame
@@ -122,8 +122,7 @@ def track_object(gimbal,
                 tilt_speed = 0
 
             # move the gimbal
-            print(f'Pan: {new_pan_pos}, Tilt: {new_tilt_pos}')
-            print(f'Pan Speed: {pan_speed}, Tilt Speed: {tilt_speed}')
+            print(f'New Pan Position: {new_pan_pos}, New Tilt Position: {new_tilt_pos}')
             print()
             gimbal.pantilt(pan_speed, tilt_speed, new_pan_pos, new_tilt_pos)
 
