@@ -15,19 +15,16 @@ def main():
     camera_capture = cv2.VideoCapture(0)
     gimbal = Camera('10.42.0.37')  # camera IP or hostname
 
-    WIDTH = 1920
-    HEIGHT = 1080
+    WIDTH = camera_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+    HEIGHT = camera_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
     CONTOUR_THRESHOLD_VALUE = 40.0 # pixel value threshold for contour detection
-    MIN_AREA = 50 # minimum area of the contour
-    MAX_AREA = 2000 # maximum area of the contour
+    MIN_AREA = 10 # minimum area of the contour
+    MAX_AREA = 10000 # maximum area of the contour
     TEMPLATE_MATCHING_THRESHOLD = 0.70 # threshold for template matching
     OBJECT_BUFFER = 10 # number of pixels to add to each side of the contour when cropping the object
     FRAMES_TO_AVERAGE = 1 # number of frames to average when tracking the object
     GIMBAL_MOVEMENT = True # set to True to track the object with the gimbal
-
-    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     assert camera_capture.isOpened(), 'Camera not found'
@@ -36,7 +33,8 @@ def main():
     if GIMBAL_MOVEMENT:
         print('Setting gimbal to home position')
         gimbal.pantilt_home()
-        time.sleep(1)
+        pan_pos, tilt_pos = gimbal.get_pantilt_position()
+        print(f'Pan: {pan_pos}, Tilt: {tilt_pos}')
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -65,7 +63,7 @@ def main():
                                                     MAX_AREA,
                                                     frame_width=WIDTH,
                                                     frame_height=HEIGHT)
-
+        
         if contour_found:
             number_of_objects += 1
             # add pixels to each side of the contour to get a buffer
@@ -93,6 +91,8 @@ def main():
             print('Tracking object')
             switch_to_motion_detection = track_object(
                                         gimbal,
+                                        pan_pos,
+                                        tilt_pos,
                                         camera_capture,
                                         cropped_object_image,
                                         template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
@@ -105,6 +105,7 @@ def main():
                 print('Finished tracking object')
                 print('Setting gimbal to home position')
                 gimbal.pantilt_home()
+                pan_pos, tilt_pos = gimbal.get_pantilt_position()
                 time.sleep(2)
 
                 # flush the frames in the buffer

@@ -4,14 +4,15 @@ import time
 
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
 
-def track_object(connection,
+def track_object(gimbal,
+                 pan_pos,
+                 tilt_pos,
                  camera_capture,
                  cropped_object_image,
                  template_matching_threshold=0.70,
                  frames_to_average=3,
                  number_of_objects=0,
-                 gimbal_movement=False,
-                 serial_queue=None):
+                 gimbal_movement=False):
 
     '''Matches the center of the identified object to the center of the camera capture and then uses the difference to move the stepper motors. The next frame is then captured and the process is repeated using the cv2.matchTemplate function.'''
 
@@ -80,35 +81,51 @@ def track_object(connection,
             difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
             difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
+            difference_x = int(difference_x // 100)
+            difference_y = int(difference_y // 100)
+
             center_threshold = 200 # number of pixels away from center
+
+            # use the difference to find the absolute distance to move the gimbal
+            pan_speed = 0
+            tilt_speed = 0
+            
+            pan_pos, tilt_pos = gimbal.get_pantilt_position()
+
+            new_pan_pos = pan_pos + difference_x
+            new_tilt_pos = tilt_pos + difference_y
 
             # if object outside of deadzone, move the steppers
             if abs(difference_x) > center_threshold:
                 if difference_x > 0: # left
-                    # print('Moving left')
-
+                    pan_speed = 3  
                 else: # right
                     # print('Moving right')
-
+                    pan_speed = -3
 
             if abs(difference_y) > center_threshold:
-
                 if difference_y > 0: # up
                     # print('Moving up')
+                    tilt_speed = 3
 
                 else: # down
                     # print('Moving down')
-
+                    tilt_speed = -3
 
             # if object inside of deadzone, stop the steppers
             if abs(difference_x) < center_threshold: # pan
                 # print('no pan')
-
+                pan_speed = 0
 
             if abs(difference_y) < center_threshold: # tilt
                 # print('no tilt')
+                tilt_speed = 0
 
             # move the gimbal
+            print(f'Pan: {new_pan_pos}, Tilt: {new_tilt_pos}')
+            print(f'Pan Speed: {pan_speed}, Tilt Speed: {tilt_speed}')
+            print()
+            gimbal.pantilt(pan_speed, tilt_speed, new_pan_pos, new_tilt_pos)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
