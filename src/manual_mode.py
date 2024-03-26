@@ -5,27 +5,18 @@ import time
 import cv2
 from ultralytics import YOLO
 import math
-
+from visca_over_ip import Camera
 from camera_functions import get_contours
-from stepper_gimbal_functions import calibrate_steppers, move_gimbal_with_keypress, read_keypress
-from classes import MotorDirection, MotorSpeed, MotorState, SerialConnection
-
 
 def main():
     '''Main function.'''
-    # initialize serial connection
-    connection = SerialConnection()
 
     # initialize the camera
     camera_capture = cv2.VideoCapture(0)
 
-    WIDTH = 640
-    HEIGHT = 480
-    
-    camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-    camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    # camera_capture.set(cv2.CAP_PROP_FPS, 60)
-    # camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    WIDTH = cv2.CAP_PROP_FRAME_WIDTH
+    HEIGHT = cv2.CAP_PROP_FRAME_HEIGHT
+    camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     USE_YOLO = False
     if USE_YOLO:
@@ -47,23 +38,10 @@ def main():
               "teddy bear", "hair drier", "toothbrush"
               ]
 
-    # wait for the Arduino to initialize
-    time.sleep(3)
-    print('Arduino initialized')
-    print('-'*30)
-
-    # send calibration message
-    print('Calibrating...')
-    calibrate_steppers(connection)
-    print('Calibration complete')
-    print('-'*30)
+    # set gimbal to home position
 
     print('Sentry Camera Armed')
     print('-'*30)
-    
-    # initialize motor states
-    tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
-    pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
 
     ret, background_frame = camera_capture.read()
     if ret is False:
@@ -122,10 +100,6 @@ def main():
                 cv2.rectangle(current_frame, (x_of_contour, y_of_contour), (x_of_contour + width_of_contour, y_of_contour + height_of_contour), (0, 255, 0), 2)
 
         cv2.imshow("Webcam View", current_frame)
-
-        # keypress = read_keypress()
-
-        # move_gimbal_with_keypress(connection, keypress, pan_state, tilt_state)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup the camera and close any open windows

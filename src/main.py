@@ -1,21 +1,19 @@
-'''This script uses a pan and tilt servo to control a gimbal with camera attached to it. Once it detects motion, it draws a box around it and uses the cv2.matchTemplate function to find the center of the object. It then moves the gimbal to the center of the object.'''
+'''This script uses a HDMI video feed and gimbal controlled by Visca over IP'''
 
 # import the necessary packages
 import time
 import cv2
 from multiprocessing import Process
-
 from camera_functions import get_cropped_object_image, contour_parser
 from tracking_functions import track_object
-from stepper_gimbal_functions import calibrate_steppers, set_neutral
-from classes import SerialConnection, SerialMessagesQueue
+from visca_over_ip import Camera
+
 
 def main():
     '''Main function.'''
-    # initialize serial connection
-    connection = SerialConnection()
 
     camera_capture = cv2.VideoCapture(0)
+    gimbal = Camera('10.42.0.37')  # camera IP or hostname
 
     WIDTH = 1920
     HEIGHT = 1080
@@ -30,28 +28,15 @@ def main():
 
     camera_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
     camera_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-    camera_capture.set(cv2.CAP_PROP_FPS, 60)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
     assert camera_capture.isOpened(), 'Camera not found'
 
-    # wait for the Arduino to initialize
-    time.sleep(2)
-    print('Arduino initialized')
-    print('-'*30)
-
     # send calibration message
     if GIMBAL_MOVEMENT:
-        print('Calibrating...')
-        calibrate_steppers(connection)
-        print('Calibration complete')
-        print('-'*30)
-        # spin up the SerialMessagesQueue
-        serial_queue = SerialMessagesQueue(connection)
-        serial_queue_process = Process(target=serial_queue.start, args=())
-        serial_queue_process.start()
-        print('Serial queue process started')
-        print('-'*30)
+        print('Setting gimbal to home position')
+        gimbal.pantilt_home()
+        time.sleep(1)
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -59,7 +44,6 @@ def main():
     ret, background_frame = camera_capture.read()
     if ret is False:
         print('Error reading first background frame')
-        serial_queue_process.terminate()
         camera_capture.release()
         return
 
@@ -108,25 +92,20 @@ def main():
             # switch to tracking object
             print('Tracking object')
             switch_to_motion_detection = track_object(
-                                        connection,
+                                        gimbal,
                                         camera_capture,
                                         cropped_object_image,
                                         template_matching_threshold=TEMPLATE_MATCHING_THRESHOLD,
                                         frames_to_average=FRAMES_TO_AVERAGE,
                                         number_of_objects=number_of_objects,
                                         gimbal_movement=GIMBAL_MOVEMENT,
-                                        serial_queue=serial_queue
                                     )
             
             if switch_to_motion_detection:
                 print('Finished tracking object')
-                print('Setting gimbal to neutral position')
-                # set the gimbal to neutral position
-                set_neutral(connection)
-                print()
-                # wait 5 seconds before capturing a new background frame
-                print('Waiting 5 seconds before capturing a new background frame')
-                time.sleep(5)
+                print('Setting gimbal to home position')
+                gimbal.pantilt_home()
+                time.sleep(2)
 
                 # flush the frames in the buffer
                 print('Flushing frames in buffer')
@@ -143,8 +122,6 @@ def main():
             camera_capture.release()
             cv2.destroyAllWindows()
             print('Closing Program')
-            # complete the serial queue process
-            serial_queue_process.terminate()
             break
 
 
