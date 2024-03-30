@@ -1,6 +1,6 @@
 import cv2
 
-def create_trackbar_window(gimbal_movement=False):
+def create_trackbar_window():
     # create a window for the trackbars
     cv2.namedWindow('Tracking Parameters')
 
@@ -11,12 +11,7 @@ def create_trackbar_window(gimbal_movement=False):
     cv2.createTrackbar('TEMPLATE_MATCHING_THRESHOLD', 'Tracking Parameters', 70, 98, lambda x: None) # default 70
     cv2.createTrackbar('PIXEL_BUFFER', 'Tracking Parameters', 10, 50, lambda x: None) # default 10
     cv2.createTrackbar('FRAMES_TO_AVERAGE', 'Tracking Parameters', 1, 10, lambda x: None) # default 1
-
-    # create a switch for gimbal movement on/off
-    if gimbal_movement:
-        cv2.createTrackbar('Gimbal Movement', 'Tracking Parameters', 1, 1, lambda x: None)
-    else:
-        cv2.createTrackbar('Gimbal Movement', 'Tracking Parameters', 0, 1, lambda x: None)
+    cv2.createTrackbar('GIMBAL MOVEMENT', 'Tracking Parameters', 0, 1, lambda x: None)
 
 
 def read_trackbar_values():
@@ -27,9 +22,7 @@ def read_trackbar_values():
     template_matching_threshold = cv2.getTrackbarPos('TEMPLATE_MATCHING_THRESHOLD', 'Tracking Parameters') / 100
     pixel_buffer = cv2.getTrackbarPos('PIXEL_BUFFER', 'Tracking Parameters')
     frames_to_average = cv2.getTrackbarPos('FRAMES_TO_AVERAGE', 'Tracking Parameters')
-    
-    # read the state of the button
-    gimbal_movement = cv2.getTrackbarPos('Gimbal Movement', 'Tracking Parameters')
+    gimbal_movement = cv2.getTrackbarPos('GIMBAL MOVEMENT', 'Tracking Parameters')
 
     return contour_threshold_value, min_area, max_area, template_matching_threshold, pixel_buffer, frames_to_average, gimbal_movement
 

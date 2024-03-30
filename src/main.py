@@ -5,28 +5,28 @@ import cv2
 from multiprocessing import Process
 from camera_functions import get_cropped_object_image, contour_parser, create_trackbar_window, read_trackbar_values, get_contours
 from tracking_functions import track_object
-from visca_over_ip import Camera
+# from visca_over_ip import Camera
+from gimbal_command_process import Gimbal
 
 def main():
     '''Main function.'''
 
-    gimbal = Camera('10.42.0.37')  # camera IP or hostname
+    camera_ip = '10.42.0.37'
+
+    # gimbal = Camera('10.42.0.37')  # camera IP or hostname
     camera_capture = cv2.VideoCapture(0)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')) # codec
     WIDTH = camera_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
     HEIGHT = camera_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    pan_pos, tilt_pos = 0, 0
 
-    gimbal_movement = False # set to True to track the object with the gimbal
+    # start multi-threading
+    print('Starting gimbal command process')
+    gimbal_process = Gimbal(ip_address=camera_ip)
+    gimbal_process.go_to_home()
 
     assert camera_capture.isOpened(), 'Camera not found'
 
-    create_trackbar_window(gimbal_movement=gimbal_movement)
-
-    if gimbal_movement:
-        print('Setting gimbal to home position')
-        gimbal.pantilt_home()
-        pan_pos, tilt_pos = gimbal.get_pantilt_position() # 0, 0 in degrees
+    create_trackbar_window()
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -79,9 +79,7 @@ def main():
             # switch to tracking object
             print('Tracking object')
             switch_to_motion_detection = track_object(
-                                        gimbal,
-                                        pan_pos,
-                                        tilt_pos,
+                                        gimbal_process,
                                         camera_capture,
                                         cropped_object_image,
                                         template_matching_threshold=template_matching_threshold,
@@ -94,8 +92,7 @@ def main():
                 print('Finished tracking object')
                 if gimbal_movement:
                     print('Setting gimbal to home position')
-                    gimbal.pantilt_home()
-                    pan_pos, tilt_pos = gimbal.get_pantilt_position()
+                    gimbal_process.go_to_home()
 
                 # flush the frames in the buffer
                 print('Flushing frames in buffer')
@@ -112,6 +109,7 @@ def main():
             # cleanup
             camera_capture.release()
             cv2.destroyAllWindows()
+            gimbal_process.close_gimbal()
             print('Closing Program')
             break
 

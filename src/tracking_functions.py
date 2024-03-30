@@ -4,9 +4,7 @@ import time
 
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
 
-def track_object(gimbal,
-                 pan_pos,
-                 tilt_pos,
+def track_object(gimbal_process,
                  camera_capture,
                  cropped_object_image,
                  template_matching_threshold=0.70,
@@ -81,36 +79,29 @@ def track_object(gimbal,
             difference_x = (frame.shape[1] / 2) - (max_loc[0] + cropped_object_image.shape[1] / 2)
             difference_y = (frame.shape[0] / 2) - (max_loc[1] + cropped_object_image.shape[0] / 2)
 
-            difference_x = int(difference_x // 100)
-            difference_y = int(difference_y // 100)
-
             center_threshold = 200 # number of pixels away from center
 
             # use the difference to find the absolute distance to move the gimbal
             pan_speed = 0
             tilt_speed = 0
-            
-            pan_pos, tilt_pos = gimbal.get_pantilt_position()
-
-            new_pan_pos = pan_pos + difference_x
-            new_tilt_pos = tilt_pos + difference_y
 
             # if object outside of deadzone, move the steppers
             if abs(difference_x) > center_threshold:
                 if difference_x > 0: # left
-                    pan_speed = 3  
+                    # print('Moving left')
+                    pan_speed = 10
                 else: # right
                     # print('Moving right')
-                    pan_speed = -3
+                    pan_speed = -10
 
             if abs(difference_y) > center_threshold:
                 if difference_y > 0: # up
                     # print('Moving up')
-                    tilt_speed = 3
+                    tilt_speed = 10
 
                 else: # down
                     # print('Moving down')
-                    tilt_speed = -3
+                    tilt_speed = -10
 
             # if object inside of deadzone, stop the steppers
             if abs(difference_x) < center_threshold: # pan
@@ -122,9 +113,7 @@ def track_object(gimbal,
                 tilt_speed = 0
 
             # move the gimbal
-            print(f'New Pan Position: {new_pan_pos}, New Tilt Position: {new_tilt_pos}')
-            print()
-            gimbal.pantilt(pan_speed, tilt_speed, new_pan_pos, new_tilt_pos)
+            gimbal_process.move(pan_speed, tilt_speed)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
