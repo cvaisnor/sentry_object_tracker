@@ -290,8 +290,10 @@ void loop() {
       Serial.write((uint8_t)MessageStatus::Success);
     } // move the motors
     else if (message.command == MessageCommand::Move) {
+      Serial.write((uint8_t)Acknowledgement::Move);
       panMotor.move(50, message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
       tiltMotor.move(50, message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
+      Serial.write((uint8_t)MessageStatus::Success);
 
       // variable for number of steps
       // variable for current motor state

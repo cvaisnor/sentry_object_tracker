@@ -13,18 +13,20 @@ print("Default fourcc: " + str(cap.get(cv2.CAP_PROP_FOURCC)))
 print("Default buffersize: " + str(cap.get(cv2.CAP_PROP_BUFFERSIZE)))
 
 # set the width and height
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-cap.set(cv2.CAP_PROP_FPS, 60)
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-print()
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+# cap.set(cv2.CAP_PROP_FPS, 60)
+# # cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', 'U', 'Y', 'V'))
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+# cap.set(cv2.CAP_PROP_BUFFERSIZE, 10)
+# print()
 
-print("Default resolution: " + str(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + "x" + str(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-print("Default FPS: " + str(cap.get(cv2.CAP_PROP_FPS)))
-print("Default fourcc: " + str(cap.get(cv2.CAP_PROP_FOURCC)))
-print("Default buffersize: " + str(cap.get(cv2.CAP_PROP_BUFFERSIZE)))
+# print("Default resolution: " + str(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + "x" + str(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+# print("Default FPS: " + str(cap.get(cv2.CAP_PROP_FPS)))
+# print("Default fourcc: " + str(cap.get(cv2.CAP_PROP_FOURCC)))
+# print("Default buffersize: " + str(cap.get(cv2.CAP_PROP_BUFFERSIZE)))
 
-time.sleep(1)
+# time.sleep(1)
 
 # Check if the webcam is opened correctly
 if not cap.isOpened():
@@ -39,10 +41,18 @@ try:
         # Read the current frame from the webcam
         ret, frame = cap.read()
         if ret == False:
-            print("No frame captured, closing program")
-            cap.release()
-            cv2.destroyAllWindows()
-            break
+            print("No frame captured")
+            # Read the current frame from the webcam
+            ret, frame = cap.read()
+            if ret == False:
+                print("No frame captured")
+                ret, frame = cap.read()
+                if ret == False:
+                    print("No frame captured")
+
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    break
         
         loop_counter += 1
         

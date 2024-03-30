@@ -3,11 +3,8 @@ import numpy as np
 import time
 
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
-from stepper_gimbal_functions import move_steppers
-from classes import MotorDirection, MotorSpeed, MotorState
 
-
-def track_object(connection,
+def track_object(gimbal_process,
                  camera_capture,
                  cropped_object_image,
                  template_matching_threshold=0.70,
@@ -27,10 +24,6 @@ def track_object(connection,
     first_search = True
 
     search_retry_count = 0
-
-    # initialize motor states
-    tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
-    pan_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
 
     while True:
         # read new frame after cropping the object
@@ -60,14 +53,14 @@ def track_object(connection,
             # take the average of all object images in the list
             cropped_object_image = np.average(all_cropped_objects, axis=0).astype(np.uint8)
         elif max_val < template_matching_threshold - 0.1:
-            print('Object not found, retrying')
+            # print('Object not found, retrying')
             # first_search = True # change to True to search the entire frame
             search_retry_count += 1 # increment the search retry count
 
         if search_retry_count > 6: # if the object is not found after 3 retries, stop searching
             # video_writer.release()
             print('Object not found after 3 retries')
-            cv2.destroyAllWindows()
+            cv2.destroyWindow("Now tracking")
             return True
             
         # draw a rectangle around the match on a copy of the current frame
@@ -88,55 +81,39 @@ def track_object(connection,
 
             center_threshold = 200 # number of pixels away from center
 
-            # case Speed1: return 2000;
-            # case Speed2: return 1500;
-            # case Speed3: return 1000;
-            # case Speed4: return 500;
-            # case Speed5: return 375;
-            # case Speed6: return 250;
-            # case Speed7: return 175;
+            # use the difference to find the absolute distance to move the gimbal
+            pan_speed = 0
+            tilt_speed = 0
 
             # if object outside of deadzone, move the steppers
             if abs(difference_x) > center_threshold:
                 if difference_x > 0: # left
                     # print('Moving left')
-                    pan_state.speed = MotorSpeed.Speed6
-                    pan_state.direction = MotorDirection.Left
-                    tilt_state.speed = MotorSpeed.Off
-                    tilt_state.direction = MotorDirection.Zero
+                    pan_speed = 10
                 else: # right
                     # print('Moving right')
-                    pan_state.speed = MotorSpeed.Speed6
-                    pan_state.direction = MotorDirection.Right
-                    tilt_state.speed = MotorSpeed.Off
-                    tilt_state.direction = MotorDirection.Zero
+                    pan_speed = -10
 
             if abs(difference_y) > center_threshold:
-
                 if difference_y > 0: # up
                     # print('Moving up')
-                    pan_state.speed = MotorSpeed.Off
-                    pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed6
-                    tilt_state.direction = MotorDirection.Up
+                    tilt_speed = 10
+
                 else: # down
                     # print('Moving down')
-                    pan_state.speed = MotorSpeed.Off
-                    pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed6
-                    tilt_state.direction = MotorDirection.Down
+                    tilt_speed = -10
 
             # if object inside of deadzone, stop the steppers
             if abs(difference_x) < center_threshold: # pan
                 # print('no pan')
-                pan_state.speed = MotorSpeed.Off
+                pan_speed = 0
 
             if abs(difference_y) < center_threshold: # tilt
                 # print('no tilt')
-                tilt_state.speed = MotorSpeed.Off
+                tilt_speed = 0
 
-            # move the steppers
-            move_steppers(connection, pan_state, tilt_state)
+            # move the gimbal
+            gimbal_process.move(pan_speed, tilt_speed)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup

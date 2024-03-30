@@ -1,5 +1,30 @@
 import cv2
 
+def create_trackbar_window():
+    # create a window for the trackbars
+    cv2.namedWindow('Tracking Parameters')
+
+    # create trackbars for the parameters
+    cv2.createTrackbar('CONTOUR_THRESHOLD_VALUE', 'Tracking Parameters', 40, 255, lambda x: None) # default 40
+    cv2.createTrackbar('MIN_AREA', 'Tracking Parameters', 100, 400, lambda x: None) # default 100
+    cv2.createTrackbar('MAX_AREA', 'Tracking Parameters', 500, 1000, lambda x: None) # default 500
+    cv2.createTrackbar('TEMPLATE_MATCHING_THRESHOLD', 'Tracking Parameters', 70, 98, lambda x: None) # default 70
+    cv2.createTrackbar('PIXEL_BUFFER', 'Tracking Parameters', 10, 50, lambda x: None) # default 10
+    cv2.createTrackbar('FRAMES_TO_AVERAGE', 'Tracking Parameters', 1, 10, lambda x: None) # default 1
+    cv2.createTrackbar('GIMBAL MOVEMENT', 'Tracking Parameters', 0, 1, lambda x: None)
+
+
+def read_trackbar_values():
+    # get the current positions of the trackbars
+    contour_threshold_value = cv2.getTrackbarPos('CONTOUR_THRESHOLD_VALUE', 'Tracking Parameters')
+    min_area = cv2.getTrackbarPos('MIN_AREA', 'Tracking Parameters')
+    max_area = cv2.getTrackbarPos('MAX_AREA', 'Tracking Parameters')
+    template_matching_threshold = cv2.getTrackbarPos('TEMPLATE_MATCHING_THRESHOLD', 'Tracking Parameters') / 100
+    pixel_buffer = cv2.getTrackbarPos('PIXEL_BUFFER', 'Tracking Parameters')
+    frames_to_average = cv2.getTrackbarPos('FRAMES_TO_AVERAGE', 'Tracking Parameters')
+    gimbal_movement = cv2.getTrackbarPos('GIMBAL MOVEMENT', 'Tracking Parameters')
+
+    return contour_threshold_value, min_area, max_area, template_matching_threshold, pixel_buffer, frames_to_average, gimbal_movement
 
 def get_cropped_object_image(frame, x, y, w, h):
     '''Returns the cropped image.'''
@@ -103,9 +128,7 @@ def combine_contours(contours, min_area=100, max_area=10000):
     return min_x, min_y, max_x, max_y
 
 
-def contour_parser(background_frame, current_frame, threshold_value, min_area, max_area, frame_width, frame_height):
-
-    contours, threshold_frame, difference_frame = get_contours(background_frame, current_frame, threshold_value=threshold_value)
+def contour_parser(contours, min_area, max_area, frame_width, frame_height):
 
     valid_countours = []
 

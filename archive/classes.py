@@ -1,7 +1,7 @@
 import serial
 import time
 from enum import IntEnum
-
+import multiprocessing
 
 class SerialConnection():
     def __init__(self) -> None:
@@ -88,3 +88,24 @@ class Message():
         # print(f'Message: {message.hex()}')
         
         return message
+
+
+class SerialMessagesQueue():
+    '''This class will hold the serial messages that are sent to the Arduino'''
+
+    def __init__(self, serial_connection) -> None:
+        self.arduino = serial_connection
+        self.queue = multiprocessing.Queue(1)
+
+    def start(self):
+        while True:
+            message = self.queue.get()
+            # print('Sending message to Arduino...')
+            self.arduino.send(message)
+            ack_response = self.arduino.read() # should be a 2 in bytes
+            if ack_response != b'\x02':
+                raise Exception('Sending message failed')
+            # read message status
+            status_response = self.arduino.read()
+            if status_response != b'\x00':
+                raise Exception('Sending message failed')
