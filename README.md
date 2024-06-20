@@ -1,5 +1,9 @@
 # Sentry Camera Object Tracker
 
+## Branches:
+### main: Uses the VISCA commands to control the gimbal (for PTZ camera w/ the VISCA protocol)
+### serial: Uses serial commands for the custom stepper motor gimbal
+
 Project Contents:
 - archive: old code
 - images: images for README.md
@@ -7,33 +11,15 @@ Project Contents:
 - stepper_serial_control: Arduino code for stepper motor control
 - tests: for camera, motion detection, Yolov8 object identification
 
-Needed if using FT232H/PCA9685 controller:
-```bash
-export BLINKA_FT232H='1'
-```
 
+**Linux Bug**:
 Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select() timeout" error:
 ```bash
 sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000 && python main.py
 ```
-(possible other fix):
-```bash
-export OPENCV_VIDEOIO_PRIORITY_MSMF=0
-```
 
-**v1**:
+**3D Printed Serial Version**:
 
-<img src="images/v1.jpg" width="50%" height="50%">
+<img src="images/final_serial_version.jpeg" width="90%" height="90%">
 
-**v2**:
-
-<img src="images/v2.jpg" width="50%" height="50%">
-
-**v2.2**:
-
-<img src="images/v2_2.jpeg" width="50%" height="50%">
-
-**v3**:
-
-<img src="images/v3.jpeg" width="50%" height="50%">
----
+- for older versions, see /images folder
