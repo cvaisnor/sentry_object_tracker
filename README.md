@@ -1,8 +1,8 @@
 # Sentry Camera Object Tracker
 
 ## Branches:
-### main: Uses the VISCA commands to control the gimbal (for PTZ camera w/ the VISCA protocol)
-### serial: Uses serial commands for the custom stepper motor gimbal
+- ### main: Uses the VISCA commands to control the gimbal (for PTZ camera w/ the VISCA protocol)
+- ### serial: Uses serial commands for the custom stepper motor gimbal
 
 Project Contents:
 - archive: old code
@@ -10,7 +10,6 @@ Project Contents:
 - src: main functions
 - stepper_serial_control: Arduino code for stepper motor control
 - tests: for camera, motion detection, Yolov8 object identification
-
 
 **Linux Bug**:
 Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select() timeout" error:
