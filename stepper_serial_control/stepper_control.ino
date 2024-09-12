@@ -86,13 +86,13 @@ class StepperMotor {
       const int BUFFER = 200;
 
       while(!endHit) {
-        unsafeMove(1, MotorDirection::Direction0, 500);
+        unsafeMove(1, MotorDirection::Direction0, 375);
         endHit = checkEndStops();
         if(endHit) {
           // Serial.println("Left endstop hit during left movement");
           
           // move back # steps to get off the end stop
-          unsafeMove(BUFFER, MotorDirection::Direction1, 500);
+          unsafeMove(BUFFER, MotorDirection::Direction1, 375);
         }
       }
 
@@ -103,14 +103,14 @@ class StepperMotor {
       // Serial.println("Switching directions");
       // Move to the right end, counting steps
       while(!endHit) {
-        unsafeMove(1, MotorDirection::Direction1, 500);
+        unsafeMove(1, MotorDirection::Direction1, 375);
         steps++;
         endHit = checkEndStops();
         if(endHit) {
           // Serial.println("Right endstop hit during right movement");
           
           // move back # steps to get off the end stop
-          unsafeMove(BUFFER, MotorDirection::Direction0, 500);
+          unsafeMove(BUFFER, MotorDirection::Direction0, 375);
           steps -= BUFFER;
         }
       }
@@ -119,7 +119,7 @@ class StepperMotor {
       currentStep = totalSteps;
     
       // set to neutral position
-      moveToNeutral(500);    
+      moveToNeutral(375);    
     }
 
 };
