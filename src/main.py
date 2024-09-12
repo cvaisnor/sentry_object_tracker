@@ -1,32 +1,62 @@
 '''This script uses a HDMI video feed and gimbal controlled by Visca over IP'''
 
 # import the necessary packages
+import time
 import cv2
 from multiprocessing import Process
 from camera_functions import get_cropped_object_image, contour_parser, create_trackbar_window, read_trackbar_values, get_contours
-from tracking_functions import track_object
-# from visca_over_ip import Camera
+from tracking_functions import track_object_visca, track_object_serial
 from gimbal_command_process import Gimbal
+import atexit
+
+from stepper_gimbal_functions import calibrate_steppers, set_neutral
+from classes import SerialConnection, SerialMessagesQueue
 
 def main():
     '''Main function.'''
 
-    camera_ip = '10.42.0.37'
+    def close_program():
+        camera_capture.release()
+        cv2.destroyAllWindows()
+        if SERIAL:
+            serial_queue_process.terminate()
+        else: 
+            gimbal_process.close_gimbal()
 
-    # gimbal = Camera('10.42.0.37')  # camera IP or hostname
+    SERIAL = True
+
     camera_capture = cv2.VideoCapture(0)
     camera_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')) # codec
     WIDTH = camera_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
     HEIGHT = camera_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
-    # start multi-threading
-    print('Starting gimbal command process')
-    gimbal_process = Gimbal(ip_address=camera_ip)
-    gimbal_process.go_to_home()
+    if SERIAL:
+        ### Start Serial
+        connection = SerialConnection()
+        time.sleep(2)
+        print('Arduino Initialized')
+        print('Calibrating...')
+        calibrate_steppers(connection)
+        print('Calibration complete')
+        print('-'*30)
+        serial_queue = SerialMessagesQueue(connection)
+        serial_queue_process = Process(target=serial_queue.start, args=())
+        serial_queue_process.start()
+        print('Serial queue process started')
+        print('-'*30)
+        ### End Serial
+    else:
+        ### Start VISCA
+        print('Starting gimbal command process')
+        camera_ip = '10.42.0.37'
+        gimbal_process = Gimbal(ip_address=camera_ip)
+        gimbal_process.go_to_home()
+        ### End VISCA
 
     assert camera_capture.isOpened(), 'Camera not found'
 
     create_trackbar_window()
+    atexit.register(close_program)
 
     print('Sentry Camera Armed')
     print('-'*30)
@@ -35,9 +65,13 @@ def main():
     if ret is False:
         print('Error reading first background frame')
         camera_capture.release()
+        if SERIAL:
+            serial_queue_process.terminate()
         return
 
     number_of_objects = 0 # number of objects detected
+
+
     while True:
         contour_threshold_value, min_area, max_area, template_matching_threshold, pixel_buffer, frames_to_average, gimbal_movement = read_trackbar_values()
 
@@ -78,21 +112,37 @@ def main():
 
             # switch to tracking object
             print('Tracking object')
-            switch_to_motion_detection = track_object(
-                                        gimbal_process,
-                                        camera_capture,
-                                        cropped_object_image,
-                                        template_matching_threshold=template_matching_threshold,
-                                        frames_to_average=frames_to_average,
-                                        number_of_objects=number_of_objects,
-                                        gimbal_movement=gimbal_movement,
-                                    )
-            
+            if SERIAL:
+                switch_to_motion_detection = track_object_serial(
+                                            connection,
+                                            camera_capture,
+                                            cropped_object_image,
+                                            template_matching_threshold=template_matching_threshold,
+                                            frames_to_average=frames_to_average,
+                                            number_of_objects=number_of_objects,
+                                            gimbal_movement=gimbal_movement,
+                                            serial_queue=serial_queue
+                                        )
+                
+            else:
+                switch_to_motion_detection = track_object_visca(
+                                            gimbal_process,
+                                            camera_capture,
+                                            cropped_object_image,
+                                            template_matching_threshold=template_matching_threshold,
+                                            frames_to_average=frames_to_average,
+                                            number_of_objects=number_of_objects,
+                                            gimbal_movement=gimbal_movement,
+                                        )
+                
             if switch_to_motion_detection:
                 print('Finished tracking object')
                 if gimbal_movement:
                     print('Setting gimbal to home position')
-                    gimbal_process.go_to_home()
+                    if SERIAL:
+                        set_neutral(connection)
+                    else:
+                        gimbal_process.go_to_home()
 
                 # flush the frames in the buffer
                 print('Flushing frames in buffer')
@@ -107,11 +157,9 @@ def main():
 
         if (contour_found and not switch_to_motion_detection) or cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
-            camera_capture.release()
-            cv2.destroyAllWindows()
-            gimbal_process.close_gimbal()
             print('Closing Program')
             break
+
 
 
 if __name__ == "__main__":
