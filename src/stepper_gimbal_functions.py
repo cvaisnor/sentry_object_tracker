@@ -72,23 +72,23 @@ def move_gimbal_with_keypress(connection, pan_state, tilt_state, serial_queue: S
         # print('Moving up')
         pan_state.speed = MotorSpeed.Off
         pan_state.direction = MotorDirection.Zero
-        tilt_state.speed = MotorSpeed.Speed4
+        tilt_state.speed = MotorSpeed.Speed5
         tilt_state.direction = MotorDirection.Up
     elif raw_keypress == ord('s'):
         # print('Moving down')
         pan_state.speed = MotorSpeed.Off
         pan_state.direction = MotorDirection.Zero
-        tilt_state.speed = MotorSpeed.Speed4
+        tilt_state.speed = MotorSpeed.Speed5
         tilt_state.direction = MotorDirection.Down
     elif raw_keypress == ord('a'):
         # print('Moving left')
-        pan_state.speed = MotorSpeed.Speed4
+        pan_state.speed = MotorSpeed.Speed5
         pan_state.direction = MotorDirection.Zero
         tilt_state.speed = MotorSpeed.Off
         tilt_state.direction = MotorDirection.Zero
     elif raw_keypress == ord('d'):
         # print('Moving right')
-        pan_state.speed = MotorSpeed.Speed4
+        pan_state.speed = MotorSpeed.Speed5
         pan_state.direction = MotorDirection.One
         tilt_state.speed = MotorSpeed.Off
         tilt_state.direction = MotorDirection.Zero

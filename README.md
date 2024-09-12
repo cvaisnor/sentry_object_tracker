@@ -1,8 +1,9 @@
 # Sentry Camera Object Tracker
 
-## Branches:
-- ### main: Uses the VISCA commands to control the gimbal (for PTZ camera w/ the VISCA protocol)
-- ### serial: Uses serial commands for the custom stepper motor gimbal
+Instructions:
+- In main.py, change line #26 for using the VISCA command protocol. 
+    - SERIAL = True # Serial connection via arduino
+    - SERIAL = False # VISCA PTZ Camera
 
 Project Contents:
 - archive: old code
@@ -14,11 +15,26 @@ Project Contents:
 **Linux Bug**:
 Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select() timeout" error:
 ```bash
-sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000 && python main.py
+sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000
 ```
 
-**3D Printed Serial Version**:
+**Version 4**:
 
-<img src="images/final_serial_version.jpeg" width="90%" height="90%">
+<img src="images/final_serial_version.jpeg" width="75%" height="75%">
 
-- for older versions, see /images folder
+
+**Version 3**:
+
+<img src="images/v3.jpeg" width="60%" height="60%">
+
+**Version 2.2**:
+
+<img src="images/v2_2.jpeg" width="60%" height="60%">
+
+**Version 2**:
+
+<img src="images/v2.jpg" width="60%" height="60%">
+
+**Version (Servo Motors) 1**:
+
+<img src="images/v1.jpg" width="60%" height="60%">

@@ -5,7 +5,7 @@ def create_trackbar_window():
     cv2.namedWindow('Tracking Parameters')
 
     # create trackbars for the parameters
-    cv2.createTrackbar('CONTOUR_THRESHOLD_VALUE', 'Tracking Parameters', 40, 255, lambda x: None) # default 40
+    cv2.createTrackbar('CONTOUR_THRESHOLD_VALUE', 'Tracking Parameters', 240, 255, lambda x: None) # default 40
     cv2.createTrackbar('MIN_AREA', 'Tracking Parameters', 100, 400, lambda x: None) # default 100
     cv2.createTrackbar('MAX_AREA', 'Tracking Parameters', 500, 1000, lambda x: None) # default 500
     cv2.createTrackbar('TEMPLATE_MATCHING_THRESHOLD', 'Tracking Parameters', 70, 98, lambda x: None) # default 70
