@@ -41,7 +41,8 @@ def main():
 
     # initialize the serial connection
     connection = SerialConnection() # set port in this class
-    time.sleep(1)
+    print('Serial connection established')
+    time.sleep(2)
     print('Calibrating...')
     calibrate_steppers(connection)
     print('Calibration complete')
@@ -57,15 +58,6 @@ def main():
 
     print('Sentry Camera Armed')
     print('-'*30)
-
-    user_input = input("Enter the object to track: ")
-    if user_input not in class_names:
-        print('Invalid object to track')
-        return
-    print("Confirmed tracking of:", user_input)
-    
-    # find the index of the object_to_track in the class_names list
-    object_index_for_tracking = class_names.index(user_input)
     
     # initialize motor states
     tilt_state = MotorState(MotorDirection.Zero, MotorSpeed.Off)
@@ -77,88 +69,118 @@ def main():
             print('Error reading frame')
             continue
         
-        results = model(current_frame, stream=True)
-        
-        # get the object to track
-        object_to_track = None
-        for result in results.xyxy[0]:
-            if result[5] == object_index_for_tracking:
-                object_to_track = result
+        # detect objects
+        boxes, confidences, class_ids = detect_objects(current_frame, model)
+
+        # object to track
+        object_to_track = 'cell phone'
+        object_coordinates = None
+        object_confidence = None
+        for i, cls in enumerate(class_ids):
+            if class_names[cls] == object_to_track:
+                object_coordinates = [(boxes[i][0] + boxes[i][2])/2, (boxes[i][1] + boxes[i][3])/2]
+                object_confidence = confidences[i]
                 break
 
-        if object_to_track is None:
-            print('Object not found in frame')
-            set_neutral(connection) # set the steppers to neutral
-            continue # go to the next frame
+        # track object
+        if object_coordinates is None:
+            print('Object not found')
+            # set_neutral(connection)
         else:
-            # get the center of the object
-            x1, y1, x2, y2 = object_to_track[:4]
-            object_center = (x1 + x2) / 2, (y1 + y2) / 2
+            track_object(connection, pan_state, tilt_state, object_coordinates, object_confidence, WIDTH, HEIGHT, serial_queue, current_frame)
+        
+        cv2.imshow("Webcam View", current_frame)
 
-            # get the center of the frame
-            frame_center = WIDTH / 2, HEIGHT / 2
-
-            # calculate the difference between the center of the frame and the center of the match
-            difference_x = object_center[0] - frame_center[0]
-            difference_y = object_center[1] - frame_center[1]
-
-            print('Difference:', difference_x, difference_y)
-
-            center_threshold = 200 # number of pixels away from center
-
-            # case Speed1: return 2000;
-            # case Speed2: return 1500;
-            # case Speed3: return 1000;
-            # case Speed4: return 500;
-            # case Speed5: return 375;
-            # case Speed6: return 250;
-            # case Speed7: return 175;
-
-            # if object outside of deadzone, move the steppers
-            if abs(difference_x) > center_threshold:
-                if difference_x > 0: # left
-                    # print('Moving left')
-                    pan_state.speed = MotorSpeed.Speed5
-                    pan_state.direction = MotorDirection.Left
-                    tilt_state.speed = MotorSpeed.Off
-                    tilt_state.direction = MotorDirection.Zero
-                else: # right
-                    # print('Moving right')
-                    pan_state.speed = MotorSpeed.Speed5
-                    pan_state.direction = MotorDirection.Right
-                    tilt_state.speed = MotorSpeed.Off
-                    tilt_state.direction = MotorDirection.Zero
-
-            if abs(difference_y) > center_threshold:
-                if difference_y > 0: # up
-                    # print('Moving up')
-                    pan_state.speed = MotorSpeed.Off
-                    pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed6
-                    tilt_state.direction = MotorDirection.Up
-                else: # down
-                    # print('Moving down')
-                    pan_state.speed = MotorSpeed.Off
-                    pan_state.direction = MotorDirection.Zero
-                    tilt_state.speed = MotorSpeed.Speed6
-                    tilt_state.direction = MotorDirection.Down
-
-            # if object inside of deadzone, stop the steppers
-            if abs(difference_x) < center_threshold: # pan
-                # print('no pan')
-                pan_state.speed = MotorSpeed.Off
-
-            if abs(difference_y) < center_threshold: # tilt
-                # print('no tilt')
-                tilt_state.speed = MotorSpeed.Off
-
-            # move the steppers
-            move_steppers(connection, pan_state, tilt_state, serial_queue)
-
-        if  cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             # cleanup
             print('Closing Program')
             break
+
+# function to detect objects in a frame
+def detect_objects(frame, model):
+    '''
+    Input: frame 
+    Output: three lists - boxes, confidences, class_ids
+    '''
+    results = model(frame, stream=True)
+    boxes = []
+    confidences = []
+    class_ids = []
+
+    for r in results:
+        for box in r.boxes:
+            x1, y1, x2, y2 = box.xyxy[0]
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            boxes.append([x1, y1, x2, y2])
+            confidence = math.ceil((box.conf[0]*100))/100
+            confidences.append(confidence)
+            cls = int(box.cls[0])
+            class_ids.append(cls)
+    
+    return boxes, confidences, class_ids
+
+# function to track a detected object with the gimbal
+def track_object(connection, pan_state, tilt_state, object_coordinates, confidences, width, height, serial_queue, current_frame):
+    '''
+    Input: serial_connection, object_coordinates, width, height
+    Output: None
+    '''
+
+    # draw a rectangle around the object with the confidence
+    x1, y1 = object_coordinates
+    x1, y1 = int(x1), int(y1)
+    cv2.rectangle(current_frame, (x1, y1), (x1+10, y1+10), (255, 0, 255), 3)
+    cv2.putText(current_frame, str(confidences), (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+
+    # deadzone
+    center_threshold = 100
+
+    # calculate the difference between the center of the frame and the center of the matched object
+    difference_x = object_coordinates[0] - width/2
+    difference_y = object_coordinates[1] - height/2
+
+    print(f'difference_x: {difference_x}, difference_y: {difference_y}')
+
+    # # if object outside of deadzone, move the steppers
+    if abs(difference_x) > center_threshold:
+        if difference_x < 0: # left
+            # print('Moving left')
+            pan_state.speed = MotorSpeed.Speed5
+            pan_state.direction = MotorDirection.Left
+            tilt_state.speed = MotorSpeed.Off
+            tilt_state.direction = MotorDirection.Zero
+        else: # right
+            # print('Moving right')
+            pan_state.speed = MotorSpeed.Speed5
+            pan_state.direction = MotorDirection.Right
+            tilt_state.speed = MotorSpeed.Off
+            tilt_state.direction = MotorDirection.Zero
+
+    if abs(difference_y) > center_threshold:
+        if difference_y < 0: # up
+            # print('Moving up')
+            pan_state.speed = MotorSpeed.Off
+            pan_state.direction = MotorDirection.Zero
+            tilt_state.speed = MotorSpeed.Speed6
+            tilt_state.direction = MotorDirection.Up
+        else: # down
+            # print('Moving down')
+            pan_state.speed = MotorSpeed.Off
+            pan_state.direction = MotorDirection.Zero
+            tilt_state.speed = MotorSpeed.Speed6
+            tilt_state.direction = MotorDirection.Down
+
+    # if object inside of deadzone, stop the steppers
+    if abs(difference_x) < center_threshold: # pan
+        # print('no pan')
+        pan_state.speed = MotorSpeed.Off
+
+    if abs(difference_y) < center_threshold: # tilt
+        # print('no tilt')
+        tilt_state.speed = MotorSpeed.Off
+
+    # # move the steppers
+    move_steppers(connection, pan_state, tilt_state, serial_queue)
 
 
 if __name__ == "__main__":
