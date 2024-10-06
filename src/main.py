@@ -31,7 +31,7 @@ def main():
     if SERIAL:
         ### Start Serial
         connection = SerialConnection() # set port in this class
-        time.sleep(1)
+        time.sleep(2)
         print('Calibrating...')
         calibrate_steppers(connection)
         print('Calibration complete')
@@ -154,7 +154,6 @@ def main():
             # cleanup
             print('Closing Program')
             break
-
 
 
 if __name__ == "__main__":
