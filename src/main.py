@@ -1,16 +1,14 @@
-'''This script uses a HDMI video feed and gimbal controlled by Visca over IP'''
-
 # import the necessary packages
 import time
 import cv2
-from multiprocessing import Process
-from camera_functions import get_cropped_object_image, contour_parser, create_trackbar_window, read_trackbar_values, get_contours
-from tracking_functions import track_object_visca, track_object_serial
-from gimbal_command_process import Gimbal
 import atexit
 
-from stepper_gimbal_functions import calibrate_steppers, set_neutral
+from multiprocessing import Process
+from gimbal_command_process import Gimbal
 from classes import SerialConnection, SerialMessagesQueue
+from tracking_functions import track_object_visca, track_object_serial
+from stepper_gimbal_functions import calibrate_steppers, set_neutral
+from camera_functions import get_cropped_object_image, contour_parser, create_trackbar_window, read_trackbar_values, get_contours
 
 def main():
     '''Main function.'''
@@ -32,13 +30,11 @@ def main():
 
     if SERIAL:
         ### Start Serial
-        connection = SerialConnection()
-        time.sleep(2)
-        print('Arduino Initialized')
+        connection = SerialConnection() # set port in this class
+        time.sleep(1)
         print('Calibrating...')
         calibrate_steppers(connection)
         print('Calibration complete')
-        print('-'*30)
         serial_queue = SerialMessagesQueue(connection)
         serial_queue_process = Process(target=serial_queue.start, args=())
         serial_queue_process.start()
@@ -48,7 +44,7 @@ def main():
     else:
         ### Start VISCA
         print('Starting gimbal command process')
-        camera_ip = '10.42.0.37'
+        camera_ip = '10.42.0.37' # modify for your camera
         gimbal_process = Gimbal(ip_address=camera_ip)
         gimbal_process.go_to_home()
         ### End VISCA
@@ -70,7 +66,6 @@ def main():
         return
 
     number_of_objects = 0 # number of objects detected
-
 
     while True:
         contour_threshold_value, min_area, max_area, template_matching_threshold, pixel_buffer, frames_to_average, gimbal_movement = read_trackbar_values()
