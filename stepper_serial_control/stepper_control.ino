@@ -244,13 +244,11 @@ enum class Acknowledgement : uint8_t {
   Move = 2
 };
 
-
 // struct for message status
 enum class MessageStatus : uint8_t {
   Success = 0,
   Error = 1
 };
-
 
 // initialize the pan and tilt motors
 StepperMotor panMotor = StepperMotor(PAN_STEP_PIN, PAN_DIR_PIN, PAN_STOP_PIN);
@@ -291,22 +289,13 @@ void loop() {
     } // move the motors
     else if (message.command == MessageCommand::Move) {
       Serial.write((uint8_t)Acknowledgement::Move);
-      panMotor.move(50, message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
-      tiltMotor.move(50, message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
+      if (message.motorsState.panSpeed.getDelay() > 0) {
+        panMotor.move((16000/message.motorsState.panSpeed.getDelay()), message.motorsState.panDirection, message.motorsState.panSpeed.getDelay());
+      }
+      if (message.motorsState.tiltSpeed.getDelay() > 0) {     
+        tiltMotor.move((16000/message.motorsState.tiltSpeed.getDelay()), message.motorsState.tiltDirection, message.motorsState.tiltSpeed.getDelay());
+      }
       Serial.write((uint8_t)MessageStatus::Success);
-
-      // variable for number of steps
-      // variable for current motor state
-      // loop(when message command recieved)
-        // update # of steps to int
-        // update current motor state to new motor state
-        // if calibrate/neutral
-          // set number of steps to 0
-        
-        // if number of steps is > 0:
-          // run pan/tilt motor move function (less steps than 50 possibly)
-          // decrement number of steps by same number
-
     }
   }
 }
