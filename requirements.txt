@@ -2,3 +2,4 @@ opencv-python
 numpy
 pyserial
 ultralytics
+visca-over-ip
