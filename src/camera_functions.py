@@ -1,4 +1,5 @@
 import cv2
+import math
 
 def create_trackbar_window():
     # create a window for the trackbars
@@ -25,6 +26,7 @@ def read_trackbar_values():
     gimbal_movement = cv2.getTrackbarPos('GIMBAL MOVEMENT', 'Tracking Parameters')
 
     return contour_threshold_value, min_area, max_area, template_matching_threshold, pixel_buffer, frames_to_average, gimbal_movement
+
 
 def get_cropped_object_image(frame, x, y, w, h):
     '''Returns the cropped image.'''
@@ -75,6 +77,7 @@ def check_image_match_local(full_image_to_search, cropped_object_image, last_loc
     max_loc = (max_loc[0] + x_start, max_loc[1] + y_start)
 
     return max_val, max_loc
+
 
 def get_contours(old_frame, current_frame, threshold_value=40.0):
     '''Returns the contours, threshold frame, and difference frame.'''
@@ -165,3 +168,26 @@ def contour_parser(contours, min_area, max_area, frame_width, frame_height):
         contour_found = True
 
     return contour_found, x, y, w, h
+
+
+def detect_objects_yolo(frame, model):
+    '''
+    Input: frame 
+    Output: three lists - boxes, confidences, class_ids
+    '''
+    results = model(frame, stream=True)
+    boxes = []
+    confidences = []
+    class_ids = []
+
+    for r in results:
+        for box in r.boxes:
+            x1, y1, x2, y2 = box.xyxy[0]
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            boxes.append([x1, y1, x2, y2])
+            confidence = math.ceil((box.conf[0]*100))/100
+            confidences.append(confidence)
+            cls = int(box.cls[0])
+            class_ids.append(cls)
+    
+    return boxes, confidences, class_ids
