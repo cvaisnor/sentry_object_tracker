@@ -17,13 +17,6 @@ python3 main_contours.py
 python3 main_yolo.py
 ```
 
-Project Contents:
-- archive: old code
-- images: images for README.md
-- src: main functions
-- stepper_serial_control: Arduino code for stepper motor control
-- tests: for camera, motion detection, Yolov8 object identification
-
 **Linux Bug**:
 Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select() timeout" error:
 ```bash
