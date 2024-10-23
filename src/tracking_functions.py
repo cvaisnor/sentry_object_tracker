@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
-import time
 
 from stepper_gimbal_functions import move_steppers
-from classes import MotorDirection, MotorSpeed, MotorState, SerialConnection, SerialMessagesQueue
+from classes import MotorDirection, MotorSpeed, MotorState
 from camera_functions import get_cropped_object_image, check_image_match, check_image_match_local
 
 def track_object_visca(gimbal_process,
@@ -262,3 +261,74 @@ def track_object_serial(connection,
             # video_writer.release()
             cv2.destroyAllWindows()
             return False
+
+def track_object_yolo(connection, pan_state, tilt_state, object_coordinates, confidences, width, height, serial_queue, current_frame):
+    '''
+    Input: serial_connection, object_coordinates, width, height
+    Output: None
+    '''
+
+    # draw a rectangle around the object with the confidence
+    x1, y1 = object_coordinates
+    x1, y1 = int(x1), int(y1)
+    cv2.rectangle(current_frame, (x1, y1), (x1+10, y1+10), (255, 0, 255), 3)
+    cv2.putText(current_frame, str(confidences), (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+
+    # deadzone
+    center_threshold = 50
+
+    # calculate the difference between the center of the frame and the center of the matched object
+    difference_x = object_coordinates[0] - width/2
+    difference_y = object_coordinates[1] - height/2
+
+    abs_difference_x = abs(difference_x)
+    abs_difference_y = abs(difference_y)
+
+    pan_state.direction = MotorDirection.Zero
+    tilt_state.direction = MotorDirection.Zero
+    pan_state.speed = MotorSpeed.Off
+    tilt_state.speed = MotorSpeed.Off
+
+    # set the speed of the motors based on the magnitude of the difference
+    if abs_difference_x > 300:
+        pan_state.speed = MotorSpeed.Speed7
+    elif abs_difference_x > 250:
+        pan_state.speed = MotorSpeed.Speed6
+    elif abs_difference_x > 200:
+        pan_state.speed = MotorSpeed.Speed5
+    elif abs_difference_x > 150:
+        pan_state.speed = MotorSpeed.Speed4
+
+    if abs_difference_y > 300:
+        tilt_state.speed = MotorSpeed.Speed7
+    elif abs_difference_y > 250:
+        tilt_state.speed = MotorSpeed.Speed6
+    elif abs_difference_y > 200:
+        tilt_state.speed = MotorSpeed.Speed5
+    elif abs_difference_y > 150:
+        tilt_state.speed = MotorSpeed.Speed4
+
+    print(f'difference_x: {difference_x}, difference_y: {difference_y}')
+
+    # # if object outside of deadzone, move the steppers
+    if abs(difference_x) > center_threshold:
+        if difference_x < 0: # left
+            pan_state.direction = MotorDirection.Left
+        else: # right
+            pan_state.direction = MotorDirection.Right
+
+    if abs(difference_y) > center_threshold:
+        if difference_y < 0: # up
+            tilt_state.direction = MotorDirection.Up
+        else: # down
+            tilt_state.direction = MotorDirection.Down
+
+    # if object inside of deadzone, stop the steppers
+    if abs(difference_x) < center_threshold: # pan
+        pan_state.speed = MotorSpeed.Off
+
+    if abs(difference_y) < center_threshold: # tilt
+        tilt_state.speed = MotorSpeed.Off
+
+    # # move the steppers
+    move_steppers(connection, pan_state, tilt_state, serial_queue)
