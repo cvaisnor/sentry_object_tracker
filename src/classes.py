@@ -6,13 +6,12 @@ import multiprocessing
 class SerialConnection():
     def __init__(self) -> None:
         self.baudrate = 115200
-        self.port = '/dev/ttyACM0'
+        self.port = '/dev/ttyACM0' # usually COM3 on Windows
         self.timeout = None
         self.arduino = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
 
     def send(self, message):
         self.arduino.write(message)
-
 
     def read(self):
         return self.arduino.read()
