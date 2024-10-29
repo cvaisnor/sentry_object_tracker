@@ -55,6 +55,7 @@ class GimbalController:
         self.last_command_time = 0
         
         time.sleep(2)
+        print("Gimbal controller initialized")
     
     def home(self) -> bool:
         """Start homing sequence and wait for completion"""
@@ -65,7 +66,9 @@ class GimbalController:
         
         # Wait for homing to complete
         start_time = time.time()
-        while self.is_homing and (time.time() - start_time) < self.home_timeout:
+        while self.is_homing:
+            if time.time() - start_time > self.home_timeout:
+                break
             time.sleep(0.1)
         
         if self.is_homing:
@@ -172,3 +175,9 @@ class GimbalController:
         self.running = False
         self.command_thread.join()
         self.serial.close()
+
+
+# test the GimbalController class by creating an instance of it and homing the gimbal
+if __name__ == "__main__":
+    gimbal = GimbalController()
+    gimbal.home()

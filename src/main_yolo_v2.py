@@ -3,7 +3,7 @@ import cv2
 import atexit
 import numpy as np
 from ultralytics import YOLO
-from gimbal_controller import GimbalController
+from gimbal_control_system import GimbalController
 
 class YOLOTracker:
     def __init__(self, camera_id=0, model_path="models/yolov8n.pt"):
@@ -207,7 +207,7 @@ class YOLOTracker:
 
 def main():
     tracker = YOLOTracker()
-    tracker.run()
+    # tracker.run()
 
 if __name__ == "__main__":
     main()

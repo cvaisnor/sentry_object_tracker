@@ -2,15 +2,15 @@
 
 // Define stepper motor connections
 #define PAN_STEP_PIN  2
-#define PAN_DIR_PIN   3
-#define TILT_STEP_PIN 4
-#define TILT_DIR_PIN  5
+#define PAN_DIR_PIN   5
+#define TILT_STEP_PIN 3
+#define TILT_DIR_PIN  6
 
 // Define endstop pins
 #define PAN_LIMIT_MIN_PIN  9
-#define PAN_LIMIT_MAX_PIN  10
-#define TILT_LIMIT_MIN_PIN 11
-#define TILT_LIMIT_MAX_PIN 12
+#define PAN_LIMIT_MAX_PIN  9
+#define TILT_LIMIT_MIN_PIN 10
+#define TILT_LIMIT_MAX_PIN 10
 
 // Create stepper instances
 AccelStepper panStepper(AccelStepper::DRIVER, PAN_STEP_PIN, PAN_DIR_PIN);
@@ -51,10 +51,10 @@ void setup() {
   configureStepper(tiltStepper);
   
   // Configure endstop pins
-  pinMode(PAN_LIMIT_MIN_PIN, INPUT_PULLUP);
-  pinMode(PAN_LIMIT_MAX_PIN, INPUT_PULLUP);
-  pinMode(TILT_LIMIT_MIN_PIN, INPUT_PULLUP);
-  pinMode(TILT_LIMIT_MAX_PIN, INPUT_PULLUP);
+  pinMode(PAN_LIMIT_MIN_PIN, INPUT);
+  pinMode(PAN_LIMIT_MAX_PIN, INPUT);
+  pinMode(TILT_LIMIT_MIN_PIN, INPUT);
+  pinMode(TILT_LIMIT_MAX_PIN, INPUT);
   
   while (!Serial) {
     delay(10);
