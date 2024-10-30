@@ -74,7 +74,7 @@ class GimbalController:
         
         # Wait for homing to complete
         start_time = time.time()
-        last_feedback_time = time.time()
+        self.last_feedback_time = time.time()
         
         while self.is_homing:
             if time.time() - start_time > self.home_timeout:
