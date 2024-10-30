@@ -7,10 +7,8 @@
 #define TILT_DIR_PIN  6
 
 // Define endstop pins
-#define PAN_LIMIT_MIN_PIN  9
-#define PAN_LIMIT_MAX_PIN  9
-#define TILT_LIMIT_MIN_PIN 10
-#define TILT_LIMIT_MAX_PIN 10
+#define PAN_LIMIT_PIN  9
+#define TILT_LIMIT_PIN 10
 
 // Create stepper instances
 AccelStepper panStepper(AccelStepper::DRIVER, PAN_STEP_PIN, PAN_DIR_PIN);
@@ -51,15 +49,8 @@ void setup() {
   configureStepper(tiltStepper);
   
   // Configure endstop pins
-  pinMode(PAN_LIMIT_MIN_PIN, INPUT_PULLUP);
-  pinMode(PAN_LIMIT_MAX_PIN, INPUT_PULLUP);
-  pinMode(TILT_LIMIT_MIN_PIN, INPUT_PULLUP);
-  pinMode(TILT_LIMIT_MAX_PIN, INPUT_PULLUP);
-
-  // digitalWrite(PAN_LIMIT_MIN_PIN, HIGH);
-  // digitalWrite(PAN_LIMIT_MAX_PIN, HIGH);
-  // digitalWrite(TILT_LIMIT_MIN_PIN, HIGH);
-  // digitalWrite(TILT_LIMIT_MAX_PIN, HIGH);
+  pinMode(PAN_LIMIT_PIN, INPUT_PULLUP);
+  pinMode(TILT_LIMIT_PIN, INPUT_PULLUP);
   
   while (!Serial) {
     delay(10);
@@ -94,16 +85,16 @@ bool performHoming() {
   
   switch(homingState) {
     case 1:  // Moving to min positions
-      if (digitalRead(PAN_LIMIT_MIN_PIN) == LOW) {
+      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
         panStepper.setSpeed(0);
-        panStepper.setCurrentPosition(0);
       }
-      if (digitalRead(TILT_LIMIT_MIN_PIN) == LOW) {
+      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
         tiltStepper.setSpeed(0);
-        tiltStepper.setCurrentPosition(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
         delay(100);  // Small delay to ensure we're stable at the limit
+        panStepper.setCurrentPosition(0);
+        tiltStepper.setCurrentPosition(0);
         panStepper.setSpeed(-HOMING_SPEED); // switch directions
         tiltStepper.setSpeed(-HOMING_SPEED);
         homingState++;
@@ -111,26 +102,30 @@ bool performHoming() {
       break;
 
     case 2:  // Moving to max positions
-      if (digitalRead(PAN_LIMIT_MAX_PIN) == LOW) {
-        panStepper.setSpeed(0);
-        panRange = panStepper.currentPosition();
+
+      // There is a bug in the endstops here.
+      // Both pins are simultaneously LOW and HIGH
+
+      if (digitalRead(PAN_LIMIT_PIN) == HIGH) { // LOW OR HIGH always runs
+        panStepper.setSpeed(-100);
+        // panRange = panStepper.currentPosition();
       }
-      if (digitalRead(TILT_LIMIT_MAX_PIN) == LOW) {
-        tiltStepper.setSpeed(0);
-        tiltRange = tiltStepper.currentPosition();
+      if (digitalRead(TILT_LIMIT_PIN) == HIGH) { // LOW OR HIGH always runs
+        tiltStepper.setSpeed(-100);
+        // tiltRange = tiltStepper.currentPosition();
       }
-      if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-        delay(100);
-        // Calculate center positions
-        long panCenter = panRange / 2;
-        long tiltCenter = tiltRange / 2;
-        // Move to center positions
-        panStepper.setSpeed(HOMING_SPEED);
-        tiltStepper.setSpeed(HOMING_SPEED);
-        panStepper.moveTo(panCenter);
-        tiltStepper.moveTo(tiltCenter);
-        homingState++;
-      }
+      // if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
+      //   delay(100);
+      //   // Calculate center positions
+      //   long panCenter = panRange / 2;
+      //   long tiltCenter = tiltRange / 2;
+      //   // Move to center positions
+      //   panStepper.setSpeed(HOMING_SPEED);
+      //   tiltStepper.setSpeed(HOMING_SPEED);
+      //   panStepper.moveTo(panCenter);
+      //   tiltStepper.moveTo(tiltCenter);
+      //   homingState++;
+      // }
       break;
     
     case 3: // Moving to neutral positions
