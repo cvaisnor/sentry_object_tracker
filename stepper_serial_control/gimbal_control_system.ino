@@ -85,50 +85,59 @@ bool performHoming() {
   
   switch(homingState) {
     case 1:  // Moving to min positions
-      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
+      if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
         panStepper.setSpeed(0);
       }
-      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
+      if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
         tiltStepper.setSpeed(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
         delay(100);  // Small delay to ensure we're stable at the limit
         panStepper.setCurrentPosition(0);
         tiltStepper.setCurrentPosition(0);
-        panStepper.setSpeed(-HOMING_SPEED); // switch directions
-        tiltStepper.setSpeed(-HOMING_SPEED);
+        panStepper.setSpeed(-HOMING_SPEED/2); // switch directions to move off the endstops slowly
+        tiltStepper.setSpeed(-HOMING_SPEED/2);
         homingState++;
       }
       break;
 
-    case 2:  // Moving to max positions
-
-      // There is a bug in the endstops here.
-      // Both pins are simultaneously LOW and HIGH
-
-      if (digitalRead(PAN_LIMIT_PIN) == HIGH) { // LOW OR HIGH always runs
-        panStepper.setSpeed(-100);
-        // panRange = panStepper.currentPosition();
+    case 2:  // move off the endstops
+      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
+        panStepper.setSpeed(-HOMING_SPEED); // Resume full speed once off limit
       }
-      if (digitalRead(TILT_LIMIT_PIN) == HIGH) { // LOW OR HIGH always runs
-        tiltStepper.setSpeed(-100);
-        // tiltRange = tiltStepper.currentPosition();
+      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
+        tiltStepper.setSpeed(-HOMING_SPEED);
       }
-      // if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-      //   delay(100);
-      //   // Calculate center positions
-      //   long panCenter = panRange / 2;
-      //   long tiltCenter = tiltRange / 2;
-      //   // Move to center positions
-      //   panStepper.setSpeed(HOMING_SPEED);
-      //   tiltStepper.setSpeed(HOMING_SPEED);
-      //   panStepper.moveTo(panCenter);
-      //   tiltStepper.moveTo(tiltCenter);
-      //   homingState++;
-      // }
+      if (panStepper.speed() == (-HOMING_SPEED) && tiltStepper.speed() == (-HOMING_SPEED)) {
+        homingState++;
+      }
       break;
     
-    case 3: // Moving to neutral positions
+    case 3: // move to the max positions
+      if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
+        panStepper.setSpeed(0);
+      }
+      if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
+        tiltStepper.setSpeed(0);
+      }
+      if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
+        panRange = panStepper.currentPosition();  // Record the range at max limit
+        tiltRange = tiltStepper.currentPosition();  // Record the range at max limit
+        // Small delay to ensure we're stable at the limit
+        delay(100);
+        // Calculate center positions
+        long panCenter = panRange / 2;
+        long tiltCenter = tiltRange / 2;
+        // Move to center positions
+        tiltStepper.setSpeed(HOMING_SPEED);
+        panStepper.setSpeed(HOMING_SPEED);
+        panStepper.runToNewPosition(panCenter); // this works but is blocking, need to fix
+        tiltStepper.runToNewPosition(tiltCenter);
+        homingState++;
+      }
+      break;
+
+    case 4: // Moving to neutral positions
       if (!panStepper.isRunning() && !tiltStepper.isRunning()) {
         homingState = 0;
         isHomed = true;
@@ -136,6 +145,16 @@ bool performHoming() {
         return true;
       }
       break;
+      // Run the steppers // this might be the fix for the event blocking in case 3
+//   if (homingState == 4) {
+//     // Use position mode for final centering
+//     panStepper.run();
+//     tiltStepper.run();
+//   } else {
+//     // Use speed mode for homing
+//     panStepper.runSpeed();
+//     tiltStepper.runSpeed();
+//   }
   }
   
   panStepper.runSpeed();
