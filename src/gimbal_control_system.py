@@ -37,7 +37,7 @@ class GimbalController:
         # System state
         self.is_homed = False
         self.is_homing = False
-        self.home_timeout = 30  # seconds
+        self.home_timeout = 45  # seconds
         self.last_feedback_time = 0
         self.feedback_timeout = 1.0  # seconds
         
