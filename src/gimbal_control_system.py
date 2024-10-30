@@ -38,6 +38,8 @@ class GimbalController:
         self.is_homed = False
         self.is_homing = False
         self.home_timeout = 30  # seconds
+        self.last_feedback_time = 0
+        self.feedback_timeout = 1.0  # seconds
         
         # Control parameters
         self.max_velocity = 1000
@@ -54,6 +56,9 @@ class GimbalController:
         self.min_command_interval = 0.02
         self.last_command_time = 0
         
+        # Clear serial buffer
+        self.serial.reset_input_buffer()
+        self.serial.reset_output_buffer()
         time.sleep(2)
         print("Gimbal controller initialized")
     
@@ -61,32 +66,58 @@ class GimbalController:
         """Start homing sequence and wait for completion"""
         print("Starting homing sequence...")
         self.is_homing = True
+        self.is_homed = False
+        
+        # Send home command
         command = bytes([CommandType.HOME, 0])
         self.command_queue.put(command)
         
         # Wait for homing to complete
         start_time = time.time()
+        last_feedback_time = time.time()
+        
         while self.is_homing:
             if time.time() - start_time > self.home_timeout:
-                break
+                print("Homing timed out!")
+                self.is_homing = False
+                return False
+            
+            # Check if we're still receiving feedback
+            if time.time() - self.last_feedback_time > self.feedback_timeout:
+                print("Lost communication with Arduino!")
+                self.is_homing = False
+                return False
+            
             time.sleep(0.1)
         
-        if self.is_homing:
-            print("Homing timed out!")
-            self.is_homing = False
+        if not self.is_homed:
+            print("Homing failed!")
             return False
         
         print("Homing completed successfully")
         return True
     
-    def move_to_neutral(self):
-        """Move to neutral position if homed"""
-        if not self.is_homed:
-            print("Cannot move to neutral position: Gimbal not homed")
-            return
-        
-        command = bytes([CommandType.NEUTRAL, 0])
-        self.command_queue.put(command)
+    def process_serial_feedback(self):
+        """Process position feedback from Arduino"""
+        while self.serial.in_waiting:
+            try:
+                line = self.serial.readline().decode().strip()
+                if line:  # Only process non-empty lines
+                    print(f"Received feedback: {line}")  # Debug output
+                    if line.startswith('P:'):
+                        # Parse feedback (format: "P:1234,T:5678,H:1")
+                        parts = line.split(',')
+                        self.position.pan = int(parts[0][2:])
+                        self.position.tilt = int(parts[1][2:])
+                        self.is_homed = parts[2][2:] == '1'
+                        self.last_feedback_time = time.time()
+                        
+                        if self.is_homed and self.is_homing:
+                            print("Home state achieved")
+                            self.is_homing = False
+            except (ValueError, IndexError, UnicodeDecodeError) as e:
+                print(f"Error processing feedback: {e}")
+                pass
     
     def _command_worker(self):
         """Worker thread for processing and sending commands"""
@@ -100,84 +131,96 @@ class GimbalController:
                 if time_since_last < self.min_command_interval:
                     time.sleep(self.min_command_interval - time_since_last)
                 
-                self.serial.write(command)
+                # Send command and verify
+                bytes_written = self.serial.write(command)
+                self.serial.flush()
+                print(f"Sent command: {list(command)}")  # Debug output
+                
                 self.process_serial_feedback()
                 self.last_command_time = time.time()
                 
             except queue.Empty:
                 self.process_serial_feedback()
-    
-    def process_serial_feedback(self):
-        """Process position feedback from Arduino"""
-        while self.serial.in_waiting:
-            try:
-                line = self.serial.readline().decode().strip()
-                if line.startswith('P:'):
-                    # Parse feedback (format: "P:1234,T:5678,H:1")
-                    parts = line.split(',')
-                    self.position.pan = int(parts[0][2:])
-                    self.position.tilt = int(parts[1][2:])
-                    self.is_homed = parts[2][2:] == '1'
-                    if not self.is_homed:
-                        self.is_homing = False
-            except (ValueError, IndexError):
-                pass
-    
+            except serial.SerialException as e:
+                print(f"Serial communication error: {e}")
+                self.running = False
+
+    def move_to_neutral(self):
+        """Move to neutral position if homed"""
+        if not self.is_homed:
+            print("Cannot move to neutral position: Gimbal not homed")
+            return
+
+        command = bytes([CommandType.NEUTRAL, 0])
+        self.command_queue.put(command)
+
+
     def set_velocity(self, pan_velocity: float, tilt_velocity: float):
         """Set velocity for velocity control mode"""
         if self.is_homing:
             return
-            
+
         self.control_mode = ControlMode.VELOCITY
         self.velocity.pan = np.clip(pan_velocity, -self.max_velocity, self.max_velocity)
         self.velocity.tilt = np.clip(tilt_velocity, -self.max_velocity, self.max_velocity)
-        
+
         # Create and queue velocity command
         pan_byte = int(np.clip(pan_velocity / self.max_velocity * 127, -128, 127))
         tilt_byte = int(np.clip(tilt_velocity / self.max_velocity * 127, -128, 127))
-        
+
         # Convert to unsigned bytes (0-255)
         pan_byte = pan_byte + 128
         tilt_byte = tilt_byte + 128
-        
+
         command = bytes([CommandType.VELOCITY, pan_byte])
         self.command_queue.put(command)
         command = bytes([CommandType.VELOCITY, tilt_byte])
         self.command_queue.put(command)
-    
+
     def track_object(self, object_position: Tuple[float, float], frame_size: Tuple[int, int]):
         """Track object based on its position in frame"""
         if self.is_homing:
             return
-            
+
         if self.frame_center is None:
             self.frame_center = (frame_size[0] / 2, frame_size[1] / 2)
-        
+
         # Calculate position error in pixels
         error_x = object_position[0] - self.frame_center[0]
         error_y = object_position[1] - self.frame_center[1]
-        
+
         # Convert pixel error to velocity (with deadzone)
         if abs(error_x) > self.deadzone:
             pan_velocity = (error_x / frame_size[0]) * self.max_velocity
         else:
             pan_velocity = 0
-            
+
         if abs(error_y) > self.deadzone:
             tilt_velocity = (error_y / frame_size[1]) * self.max_velocity
         else:
             tilt_velocity = 0
-            
+
         self.set_velocity(pan_velocity, tilt_velocity)
-    
+
     def close(self):
         """Cleanup resources"""
         self.running = False
         self.command_thread.join()
         self.serial.close()
 
-
-# test the GimbalController class by creating an instance of it and homing the gimbal
+# Test the GimbalController class
 if __name__ == "__main__":
-    gimbal = GimbalController()
-    gimbal.home()
+    try:
+        gimbal = GimbalController()
+        success = gimbal.home()
+        if success:
+            print("Gimbal successfully homed")
+        else:
+            print("Homing failed")
+    except serial.SerialException as e:
+        print(f"Failed to connect to gimbal: {e}")
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    finally:
+        if 'gimbal' in locals():
+            gimbal.close()
