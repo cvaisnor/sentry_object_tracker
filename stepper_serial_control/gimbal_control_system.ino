@@ -96,9 +96,11 @@ bool performHoming() {
     case 1:  // Moving to min positions
       if (digitalRead(PAN_LIMIT_MIN_PIN) == LOW) {
         panStepper.setSpeed(0);
+        panStepper.setCurrentPosition(0);
       }
       if (digitalRead(TILT_LIMIT_MIN_PIN) == LOW) {
         tiltStepper.setSpeed(0);
+        tiltStepper.setCurrentPosition(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
         delay(100);  // Small delay to ensure we're stable at the limit
@@ -107,58 +109,31 @@ bool performHoming() {
         homingState++;
       }
       break;
-    
-    case 2: // move off the endstops from MIN and set position to 0
-      // if (digitalRead(PAN_LIMIT_MIN_PIN) == HIGH) {
-      //   panStepper.setSpeed(0); // once off the limit, stop
-      // }
-      // if (digitalRead(TILT_LIMIT_MIN_PIN) == HIGH) {
-      //   tiltStepper.setSpeed(0); // once off the limit, stop
-      // }
-      // if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-      //   tiltStepper.setCurrentPosition(0);
-      //   panStepper.setCurrentPosition(0);
-      //   panStepper.setSpeed(-HOMING_SPEED); // continue moving in the same direction
-      //   tiltStepper.setSpeed(-HOMING_SPEED);
-      //   homingState++;
-      // }
 
-      break;
-
-    case 3:  // Moving to max positions
+    case 2:  // Moving to max positions
       if (digitalRead(PAN_LIMIT_MAX_PIN) == LOW) {
-        panStepper.setSpeed(0);
-      }
-      if (digitalRead(TILT_LIMIT_MAX_PIN) == LOW) {
-        tiltStepper.setSpeed(0);
-      }
-      if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-        homingState++;
-        panStepper.setSpeed(HOMING_SPEED); // switch directions
-        tiltStepper.setSpeed(HOMING_SPEED);
-      }
-      break;
-    
-    case 4:  // Moving off the endstops from MAX
-      if (digitalRead(PAN_LIMIT_MAX_PIN) == HIGH) {
         panStepper.setSpeed(0);
         panRange = panStepper.currentPosition();
       }
-      if (digitalRead(TILT_LIMIT_MAX_PIN) == HIGH) {
+      if (digitalRead(TILT_LIMIT_MAX_PIN) == LOW) {
         tiltStepper.setSpeed(0);
         tiltRange = tiltStepper.currentPosition();
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-        // Move to neutral positions
-        tiltStepper.setSpeed(HOMING_SPEED);
+        delay(100);
+        // Calculate center positions
+        long panCenter = panRange / 2;
+        long tiltCenter = tiltRange / 2;
+        // Move to center positions
         panStepper.setSpeed(HOMING_SPEED);
-        panStepper.moveTo(panRange / 2);
-        tiltStepper.moveTo(tiltRange / 2);
+        tiltStepper.setSpeed(HOMING_SPEED);
+        panStepper.moveTo(panCenter);
+        tiltStepper.moveTo(tiltCenter);
         homingState++;
       }
       break;
-      
-    case 5:  // Moving to neutral positions
+    
+    case 3: // Moving to neutral positions
       if (!panStepper.isRunning() && !tiltStepper.isRunning()) {
         homingState = 0;
         isHomed = true;
