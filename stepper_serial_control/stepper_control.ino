@@ -30,7 +30,7 @@ class StepperMotor {
   }
 
   bool checkEndStops() {
-    return digitalRead(stopPin) == LOW;
+    return digitalRead(stopPin) == HIGH;
   }
 
   public:
