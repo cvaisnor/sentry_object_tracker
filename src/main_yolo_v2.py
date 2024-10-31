@@ -48,16 +48,15 @@ class YOLOTracker:
     
     def initialize_system(self):
         """Initialize the system by homing the gimbal"""
-        print("Initializing system...")
-        print("Starting homing sequence...")
+        success = self.gimbal.run_homing() # this blocks until homing is complete
         
-        if self.gimbal.home():
-            self.is_initialized = True
-            print("System initialization complete!")
-            return True
-        else:
-            print("Failed to initialize system: Homing failed")
+        # Check if homing was successful
+        if not success:
+            print("Failed to home system")
             return False
+        
+        self.is_initialized = True
+        return True
     
     def detect_objects(self, frame):
         """Run YOLO detection on frame"""
@@ -207,7 +206,7 @@ class YOLOTracker:
 
 def main():
     tracker = YOLOTracker()
-    # tracker.run()
+    tracker.run()
 
 if __name__ == "__main__":
     main()
