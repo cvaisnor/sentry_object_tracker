@@ -62,14 +62,14 @@ class GimbalController:
         time.sleep(2)
         print("Gimbal controller initialized")
     
-    def home(self) -> bool:
+    def run_homing(self) -> bool:
         """Start homing sequence and wait for completion"""
         print("Starting homing sequence...")
         self.is_homing = True
         self.is_homed = False
         
         # Send home command
-        command = bytes([CommandType.HOME, 0])
+        command = bytes([CommandType.HOME, 0, 0])
         self.command_queue.put(command)
         
         # Wait for homing to complete
@@ -151,9 +151,8 @@ class GimbalController:
             print("Cannot move to neutral position: Gimbal not homed")
             return
 
-        command = bytes([CommandType.NEUTRAL, 0])
+        command = bytes([CommandType.NEUTRAL, 0, 0])
         self.command_queue.put(command)
-
 
     def set_velocity(self, pan_velocity: float, tilt_velocity: float):
         """Set velocity for velocity control mode"""
@@ -172,10 +171,10 @@ class GimbalController:
         pan_byte = pan_byte + 128
         tilt_byte = tilt_byte + 128
 
-        command = bytes([CommandType.VELOCITY, pan_byte])
+        # lets use the first byte for the command type, second byte for pan and third byte for tilt
+        command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte])
         self.command_queue.put(command)
-        command = bytes([CommandType.VELOCITY, tilt_byte])
-        self.command_queue.put(command)
+
 
     def track_object(self, object_position: Tuple[float, float], frame_size: Tuple[int, int]):
         """Track object based on its position in frame"""
@@ -212,15 +211,25 @@ class GimbalController:
 if __name__ == "__main__":
     try:
         gimbal = GimbalController()
-        success = gimbal.home()
-        if success:
-            print("Gimbal successfully homed")
-        else:
+        success = gimbal.run_homing()
+        if not success:
             print("Homing failed")
+    
+        # issue a small velocity command in one direction
+        # print("Setting velocity to 100, 100")
+        # gimbal.set_velocity(50, 50)
+        # time.sleep(2)
+
+        # # return to neutral position
+        print("Returning to neutral position")
+        gimbal.move_to_neutral()
+
+        time.sleep(3)
+        print("Exiting...")
+    
     except serial.SerialException as e:
         print(f"Failed to connect to gimbal: {e}")
     except KeyboardInterrupt:
         print("\nExiting...")
-    finally:
         if 'gimbal' in locals():
             gimbal.close()
