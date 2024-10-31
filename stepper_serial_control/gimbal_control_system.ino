@@ -16,7 +16,7 @@ AccelStepper tiltStepper(AccelStepper::DRIVER, TILT_STEP_PIN, TILT_DIR_PIN);
 
 // System parameters
 const long MAX_SPEED = 1000;          // Maximum speed in steps per second
-const long HOMING_SPEED = 500;        // Speed during homing
+const long HOMING_SPEED = 750;        // Speed during homing
 const long MAX_ACCELERATION = 2000;    // Steps per second per second
 const int SERIAL_UPDATE_MS = 50;      // Position feedback interval
 const int COMMAND_TIMEOUT_MS = 250;   // Time before stopping if no commands received
@@ -151,10 +151,10 @@ bool performHoming() {
   if (homingState == 4) {
     // Use position mode for final centering
     panStepper.run();
-    tiltStepper.run();
+    tiltStepper.run(); // dynamic
   } else {
     // Use constant speed mode for homing
-    panStepper.runSpeed();
+    panStepper.runSpeed(); // constant
     tiltStepper.runSpeed();
   }
 
@@ -167,12 +167,14 @@ void moveToNeutral() {
   tiltStepper.moveTo(tiltRange / 2);
 }
 
-void processCommand(uint8_t cmd, uint8_t data) {
+void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2) {
   switch(cmd) {
     case CMD_VELOCITY:
       if (!isHoming) {
-        float panVelocity = ((int)data - 128) * (MAX_SPEED / 127.0);
+        float tiltVelocity = ((int)data1 - 128) * (MAX_SPEED / 127.0);
+        float panVelocity = ((int)data2 - 128) * (MAX_SPEED / 127.0);
         panStepper.setSpeed(panVelocity);
+        tiltStepper.setSpeed(tiltVelocity);
       }
       break;
       
@@ -194,7 +196,7 @@ void processSerial() {
     cmdBuffer[bufferIndex++] = Serial.read();
     
     if (bufferIndex == BUFFER_SIZE) {
-      processCommand(cmdBuffer[0], cmdBuffer[1]);
+      processCommand(cmdBuffer[0], cmdBuffer[1], cmdBuffer[2]);
       bufferIndex = 0;
     }
   }
@@ -219,12 +221,12 @@ void loop() {
     processSerial();
     
     // Run steppers in velocity mode
-    if (panStepper.speed() != 0) {
-      panStepper.runSpeed();
-    }
-    if (tiltStepper.speed() != 0) {
-      tiltStepper.runSpeed();
-    }
+    // if (panStepper.speed() != 0) {
+    //   panStepper.runSpeed();
+    // }
+    // if (tiltStepper.speed() != 0) {
+    //   tiltStepper.runSpeed();
+    // }
     
     // Run steppers in position mode
     panStepper.run();
