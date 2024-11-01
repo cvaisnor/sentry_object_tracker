@@ -71,8 +71,8 @@ bool performHoming() {
   if (homingState == 0) {
     // Start homing sequence
     homingStartTime = millis();
-    panStepper.setSpeed(HOMING_SPEED);
-    tiltStepper.setSpeed(HOMING_SPEED);
+    panStepper.setSpeed(-HOMING_SPEED);
+    tiltStepper.setSpeed(-HOMING_SPEED);
     homingState = 1;
     return false;
   }
@@ -96,20 +96,20 @@ bool performHoming() {
         delay(100);  // Small delay to ensure we're stable at the limit
         panStepper.setCurrentPosition(0);
         tiltStepper.setCurrentPosition(0);
-        panStepper.setSpeed(-HOMING_SPEED/2); // switch directions to move off the endstops slowly
-        tiltStepper.setSpeed(-HOMING_SPEED/2);
+        panStepper.setSpeed(HOMING_SPEED/2); // switch directions to move off the endstops slowly
+        tiltStepper.setSpeed(HOMING_SPEED/2);
         homingState++;
       }
       break;
 
     case 2:  // move off the endstops
       if (digitalRead(PAN_LIMIT_PIN) == LOW) {
-        panStepper.setSpeed(-HOMING_SPEED); // Resume full speed once off limit
+        panStepper.setSpeed(HOMING_SPEED); // Resume full speed once off limit
       }
       if (digitalRead(TILT_LIMIT_PIN) == LOW) {
-        tiltStepper.setSpeed(-HOMING_SPEED);
+        tiltStepper.setSpeed(HOMING_SPEED);
       }
-      if (panStepper.speed() == (-HOMING_SPEED) && tiltStepper.speed() == (-HOMING_SPEED)) {
+      if (panStepper.speed() == (HOMING_SPEED) && tiltStepper.speed() == (HOMING_SPEED)) {
         homingState++;
       }
       break;
@@ -130,8 +130,8 @@ bool performHoming() {
         long panCenter = panRange / 2;
         long tiltCenter = tiltRange / 2;
         // Move to center positions
-        tiltStepper.setSpeed(HOMING_SPEED);
-        panStepper.setSpeed(HOMING_SPEED);
+        tiltStepper.setSpeed(-HOMING_SPEED);
+        panStepper.setSpeed(-HOMING_SPEED);
         panStepper.moveTo(panCenter);
         tiltStepper.moveTo(tiltCenter);
         homingState++;
@@ -208,7 +208,7 @@ void velocityToPosition(float velocity, AccelStepper &stepper, long rangeLimit) 
   
   // Constrain to valid range (0 to rangeLimit)
   if (rangeLimit > 0) {
-    newTarget = constrain(newTarget, 200, rangeLimit-200);
+    newTarget = constrain(newTarget, 100, rangeLimit-100);
   }
   
   // Debug target position
