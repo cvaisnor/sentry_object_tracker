@@ -113,7 +113,7 @@ class GimbalController:
                         self.last_feedback_time = time.time()
                         
                         if self.is_homed and self.is_homing:
-                            print("Home state achieved")
+                            # print("Home state achieved")
                             self.is_homing = False
             except (ValueError, IndexError, UnicodeDecodeError) as e:
                 print(f"Error processing feedback: {e}")
@@ -159,21 +159,28 @@ class GimbalController:
         if self.is_homing:
             return
 
-        self.control_mode = ControlMode.VELOCITY
-        self.velocity.pan = np.clip(pan_velocity, -self.max_velocity, self.max_velocity)
-        self.velocity.tilt = np.clip(tilt_velocity, -self.max_velocity, self.max_velocity)
-
-        # Create and queue velocity command
-        pan_byte = int(np.clip(pan_velocity / self.max_velocity * 127, -128, 127))
-        tilt_byte = int(np.clip(tilt_velocity / self.max_velocity * 127, -128, 127))
-
-        # Convert to unsigned bytes (0-255)
-        pan_byte = pan_byte + 128
-        tilt_byte = tilt_byte + 128
-
-        # lets use the first byte for the command type, second byte for pan and third byte for tilt
+        # Clip velocities to max range
+        pan_velocity = np.clip(pan_velocity, -self.max_velocity, self.max_velocity)
+        tilt_velocity = np.clip(tilt_velocity, -self.max_velocity, self.max_velocity)
+        
+        # Scale to byte range (0-255)
+        pan_byte = int(((pan_velocity / self.max_velocity) * 127) + 128)
+        tilt_byte = int(((tilt_velocity / self.max_velocity) * 127) + 128)
+        
+        # Create command bytes
         command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte])
+        
+        # Debug output
+        print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}")
+        print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}")
+        print(f"Command bytes: {list(command)}")
+        
+        # Send command
         self.command_queue.put(command)
+        
+        # Store current velocities
+        self.velocity.pan = pan_velocity
+        self.velocity.tilt = tilt_velocity
 
 
     def track_object(self, object_position: Tuple[float, float], frame_size: Tuple[int, int]):
@@ -215,12 +222,13 @@ if __name__ == "__main__":
         if not success:
             print("Homing failed")
     
-        # issue a small velocity command in one direction
-        # print("Setting velocity to 100, 100")
-        # gimbal.set_velocity(50, 50)
-        # time.sleep(2)
+        # issue a velocity command in one direction
+        gimbal.set_velocity(400, 400) 
+        time.sleep(0.25)
+        gimbal.set_velocity(900, 900) 
+        time.sleep(3)
 
-        # # return to neutral position
+        # return to neutral position
         print("Returning to neutral position")
         gimbal.move_to_neutral()
 
