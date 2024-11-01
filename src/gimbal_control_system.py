@@ -134,7 +134,7 @@ class GimbalController:
                 # Send command and verify
                 bytes_written = self.serial.write(command)
                 self.serial.flush()
-                print(f"Sent command: {list(command)}")  # Debug output
+                # print(f"Sent command: {list(command)}")  # Debug output
                 
                 self.process_serial_feedback()
                 self.last_command_time = time.time()
@@ -222,11 +222,11 @@ if __name__ == "__main__":
         if not success:
             print("Homing failed")
     
-        # issue a velocity command in one direction
-        gimbal.set_velocity(400, 400) 
-        time.sleep(0.25)
-        gimbal.set_velocity(900, 900) 
-        time.sleep(3)
+        # issue a velocity commands
+        gimbal.set_velocity(-1000, -400) 
+        time.sleep(1.5)
+        gimbal.set_velocity(900, 600) 
+        time.sleep(1.5)
 
         # return to neutral position
         print("Returning to neutral position")
