@@ -169,10 +169,10 @@ void moveToNeutral() {
   long tiltTarget = tiltRange / 2;
   
   // Debug output
-  Serial.print("Moving to neutral - Pan target: ");
-  Serial.print(panTarget);
-  Serial.print(" Tilt target: ");
-  Serial.println(tiltTarget);
+  // Serial.print("Moving to neutral - Pan target: ");
+  // Serial.print(panTarget);
+  // Serial.print(" Tilt target: ");
+  // Serial.println(tiltTarget);
   
   panStepper.moveTo(panTarget);
   tiltStepper.moveTo(tiltTarget);
@@ -183,8 +183,8 @@ void velocityToPosition(float velocity, AccelStepper &stepper, long rangeLimit) 
   if (!isHomed) return;
   
   // Debug velocity input
-  Serial.print("Processing velocity: ");
-  Serial.println(velocity);
+  // Serial.print("Processing velocity: ");
+  // Serial.println(velocity);
   
   if (abs(velocity) < 1.0) {
     stepper.stop();
@@ -208,14 +208,14 @@ void velocityToPosition(float velocity, AccelStepper &stepper, long rangeLimit) 
   
   // Constrain to valid range (0 to rangeLimit)
   if (rangeLimit > 0) {
-    newTarget = constrain(newTarget, 100, rangeLimit-100);
+    newTarget = constrain(newTarget, 200, rangeLimit-200);
   }
   
   // Debug target position
-  Serial.print("Current pos: ");
-  Serial.print(currentPos);
-  Serial.print(" New target: ");
-  Serial.println(newTarget);
+  // Serial.print("Current pos: ");
+  // Serial.print(currentPos);
+  // Serial.print(" New target: ");
+  // Serial.println(newTarget);
   
   // Set movement speed based on velocity magnitude
   float speed = abs(velocity);
@@ -231,15 +231,15 @@ void processVelocityCommand(uint8_t panByte, uint8_t tiltByte) {
   float tiltVelocity = (((int)tiltByte - 128) / 127.0) * MAX_SPEED;
   
   // Debug output
-  Serial.print("Received command bytes - Pan: ");
-  Serial.print(panByte);
-  Serial.print(" Tilt: ");
-  Serial.println(tiltByte);
+  // Serial.print("Received command bytes - Pan: ");
+  // Serial.print(panByte);
+  // Serial.print(" Tilt: ");
+  // Serial.println(tiltByte);
   
-  Serial.print("Converted velocities - Pan: ");
-  Serial.print(panVelocity);
-  Serial.print(" Tilt: ");
-  Serial.println(tiltVelocity);
+  // Serial.print("Converted velocities - Pan: ");
+  // Serial.print(panVelocity);
+  // Serial.print(" Tilt: ");
+  // Serial.println(tiltVelocity);
   
   velocityToPosition(panVelocity, panStepper, panRange);
   velocityToPosition(tiltVelocity, tiltStepper, tiltRange);
@@ -247,12 +247,12 @@ void processVelocityCommand(uint8_t panByte, uint8_t tiltByte) {
 
 void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2) {
   // Debug received command
-  Serial.print("Processing command: ");
-  Serial.print(cmd);
-  Serial.print(" ");
-  Serial.print(data1);
-  Serial.print(" ");
-  Serial.println(data2);
+  // Serial.print("Processing command: ");
+  // Serial.print(cmd);
+  // Serial.print(" ");
+  // Serial.print(data1);
+  // Serial.print(" ");
+  // Serial.println(data2);
   
   switch(cmd) {
     case CMD_VELOCITY:
@@ -288,13 +288,13 @@ void processSerial() {
     uint8_t data2 = Serial.read();
     
     // Debug received command
-    Serial.print("Received command bytes: [");
-    Serial.print(cmd);
-    Serial.print(", ");
-    Serial.print(data1);
-    Serial.print(", ");
-    Serial.print(data2);
-    Serial.println("]");
+    // Serial.print("Received command bytes: [");
+    // Serial.print(cmd);
+    // Serial.print(", ");
+    // Serial.print(data1);
+    // Serial.print(", ");
+    // Serial.print(data2);
+    // Serial.println("]");
     
     processCommand(cmd, data1, data2);
   }
