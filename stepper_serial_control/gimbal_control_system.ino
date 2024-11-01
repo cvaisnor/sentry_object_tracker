@@ -15,11 +15,12 @@ AccelStepper panStepper(AccelStepper::DRIVER, PAN_STEP_PIN, PAN_DIR_PIN);
 AccelStepper tiltStepper(AccelStepper::DRIVER, TILT_STEP_PIN, TILT_DIR_PIN);
 
 // System parameters
-const long MAX_SPEED = 1000;          // Maximum speed in steps per second
-const long HOMING_SPEED = 750;        // Speed during homing
-const long MAX_ACCELERATION = 2000;    // Steps per second per second
+const long MAX_SPEED = 2000;          // Maximum speed in steps per second
+const long HOMING_SPEED = 1000;        // Speed during homing
+const long MAX_ACCELERATION = 3000;    // Steps per second per second
 const int SERIAL_UPDATE_MS = 50;      // Position feedback interval
 const int COMMAND_TIMEOUT_MS = 250;   // Time before stopping if no commands received
+const int VELOCITY_TO_DISTANCE = 2000; // How far to move based on velocity (adjust as needed)
 
 // System state
 unsigned long lastCommandTime = 0;     // Timestamp of last received command
@@ -30,7 +31,7 @@ long tiltRange = 0;                   // Total range of tilt motion
 bool isHoming = false;                // Whether currently in homing sequence
 
 // Communication buffer
-const int BUFFER_SIZE = 2;
+const int BUFFER_SIZE = 3;
 uint8_t cmdBuffer[BUFFER_SIZE];
 int bufferIndex = 0;
 
@@ -163,18 +164,100 @@ bool performHoming() {
 
 void moveToNeutral() {
   if (!isHomed) return;
-  panStepper.moveTo(panRange / 2);
-  tiltStepper.moveTo(tiltRange / 2);
+  
+  long panTarget = panRange / 2;
+  long tiltTarget = tiltRange / 2;
+  
+  // Debug output
+  Serial.print("Moving to neutral - Pan target: ");
+  Serial.print(panTarget);
+  Serial.print(" Tilt target: ");
+  Serial.println(tiltTarget);
+  
+  panStepper.moveTo(panTarget);
+  tiltStepper.moveTo(tiltTarget);
+}
+
+// Function to convert velocity command to position target
+void velocityToPosition(float velocity, AccelStepper &stepper, long rangeLimit) {
+  if (!isHomed) return;
+  
+  // Debug velocity input
+  Serial.print("Processing velocity: ");
+  Serial.println(velocity);
+  
+  if (abs(velocity) < 1.0) {
+    stepper.stop();
+    return;
+  }
+  
+  // Get current position
+  long currentPos = stepper.currentPosition();
+  
+  // Calculate move distance based on velocity
+  // Increase VELOCITY_TO_DISTANCE if movement is too slow
+  long moveDistance = (abs(velocity) / MAX_SPEED) * VELOCITY_TO_DISTANCE;
+  
+  // Set direction based on velocity sign
+  long newTarget;
+  if (velocity > 0) {
+    newTarget = currentPos + moveDistance;
+  } else {
+    newTarget = currentPos - moveDistance;
+  }
+  
+  // Constrain to valid range (0 to rangeLimit)
+  if (rangeLimit > 0) {
+    newTarget = constrain(newTarget, 200, rangeLimit-200);
+  }
+  
+  // Debug target position
+  Serial.print("Current pos: ");
+  Serial.print(currentPos);
+  Serial.print(" New target: ");
+  Serial.println(newTarget);
+  
+  // Set movement speed based on velocity magnitude
+  float speed = abs(velocity);
+  if (speed > MAX_SPEED) speed = MAX_SPEED;
+  stepper.setMaxSpeed(speed);
+  
+  stepper.moveTo(newTarget);
+}
+
+void processVelocityCommand(uint8_t panByte, uint8_t tiltByte) {
+  // Convert from byte (0-255) to signed velocity (-MAX_SPEED to +MAX_SPEED)
+  float panVelocity = (((int)panByte - 128) / 127.0) * MAX_SPEED;
+  float tiltVelocity = (((int)tiltByte - 128) / 127.0) * MAX_SPEED;
+  
+  // Debug output
+  Serial.print("Received command bytes - Pan: ");
+  Serial.print(panByte);
+  Serial.print(" Tilt: ");
+  Serial.println(tiltByte);
+  
+  Serial.print("Converted velocities - Pan: ");
+  Serial.print(panVelocity);
+  Serial.print(" Tilt: ");
+  Serial.println(tiltVelocity);
+  
+  velocityToPosition(panVelocity, panStepper, panRange);
+  velocityToPosition(tiltVelocity, tiltStepper, tiltRange);
 }
 
 void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2) {
+  // Debug received command
+  Serial.print("Processing command: ");
+  Serial.print(cmd);
+  Serial.print(" ");
+  Serial.print(data1);
+  Serial.print(" ");
+  Serial.println(data2);
+  
   switch(cmd) {
     case CMD_VELOCITY:
       if (!isHoming) {
-        float tiltVelocity = ((int)data1 - 128) * (MAX_SPEED / 127.0);
-        float panVelocity = ((int)data2 - 128) * (MAX_SPEED / 127.0);
-        panStepper.setSpeed(panVelocity);
-        tiltStepper.setSpeed(tiltVelocity);
+        processVelocityCommand(data1, data2);
       }
       break;
       
@@ -192,13 +275,28 @@ void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2) {
 }
 
 void processSerial() {
-  while (Serial.available() > 0 && bufferIndex < BUFFER_SIZE) {
-    cmdBuffer[bufferIndex++] = Serial.read();
-    
-    if (bufferIndex == BUFFER_SIZE) {
-      processCommand(cmdBuffer[0], cmdBuffer[1], cmdBuffer[2]);
-      bufferIndex = 0;
+  // Wait until we have at least 3 bytes available
+  if (Serial.available() >= 3) {
+    // Clear the input buffer first
+    while (Serial.available() > 3) {
+      Serial.read();
     }
+    
+    // Read exactly 3 bytes
+    uint8_t cmd = Serial.read();
+    uint8_t data1 = Serial.read();
+    uint8_t data2 = Serial.read();
+    
+    // Debug received command
+    Serial.print("Received command bytes: [");
+    Serial.print(cmd);
+    Serial.print(", ");
+    Serial.print(data1);
+    Serial.print(", ");
+    Serial.print(data2);
+    Serial.println("]");
+    
+    processCommand(cmd, data1, data2);
   }
 }
 
@@ -220,15 +318,28 @@ void loop() {
   } else {
     processSerial();
     
-    // Run steppers in velocity mode
-    // if (panStepper.speed() != 0) {
-    //   panStepper.runSpeed();
-    // }
-    // if (tiltStepper.speed() != 0) {
-    //   tiltStepper.runSpeed();
-    // }
+    // Check endstops before running steppers
+    if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
+      // At limit - update position and stop
+      if (panStepper.speed() > 0) {
+        panStepper.setCurrentPosition(panRange);
+      } else if (panStepper.speed() < 0) {
+        panStepper.setCurrentPosition(0);
+      }
+      panStepper.stop();
+    }
     
-    // Run steppers in position mode
+    if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
+      // At limit - update position and stop
+      if (tiltStepper.speed() > 0) {
+        tiltStepper.setCurrentPosition(tiltRange);
+      } else if (tiltStepper.speed() < 0) {
+        tiltStepper.setCurrentPosition(0);
+      }
+      tiltStepper.stop();
+    }
+    
+    // Run steppers with acceleration
     panStepper.run();
     tiltStepper.run();
   }
