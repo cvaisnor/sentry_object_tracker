@@ -9,7 +9,7 @@ class YOLOTracker:
     def __init__(self, camera_id=0, model_path="models/yolov8n.pt"):
         # Initialize camera
         self.camera = cv2.VideoCapture(camera_id)
-        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
         self.width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
@@ -199,7 +199,7 @@ class YOLOTracker:
 
 def main():
     tracker = YOLOTracker()
-    # tracker.run()
+    tracker.run()
 
 if __name__ == "__main__":
     main()

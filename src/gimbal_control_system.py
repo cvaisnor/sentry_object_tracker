@@ -33,14 +33,7 @@ class GimbalController:
         self.target_position = GimbalPosition()
         self.velocity = GimbalVelocity()
         self.control_mode = ControlMode.VELOCITY
-        
-        # System state
-        self.is_homed = False
-        self.is_homing = False
-        self.home_timeout = 45  # seconds
-        self.last_feedback_time = 0
-        self.feedback_timeout = 1.0  # seconds
-        
+
         # Control parameters
         self.max_velocity = 1000
         self.deadzone = 50
@@ -51,19 +44,32 @@ class GimbalController:
         self.running = True
         self.command_thread = threading.Thread(target=self._command_worker, daemon=True)
         self.command_thread.start()
+
+        # System state
+        self.is_homed = False
+        self.is_homing = False
+        self.home_timeout = 45  # seconds
+        self.last_feedback_time = 0
+        self.feedback_timeout = 1.0  # seconds
         
         # Rate limiting
         self.min_command_interval = 0.02
         self.last_command_time = 0
         
         # Clear serial buffer
-        self.serial.reset_input_buffer()
-        self.serial.reset_output_buffer()
+        # self.serial.reset_input_buffer()
+        # self.serial.reset_output_buffer()
         time.sleep(2)
         print("Gimbal controller initialized")
     
     def run_homing(self) -> bool:
         """Start homing sequence and wait for completion"""
+        # wait for serial feedback to check if homed
+
+        if self.is_homed and not self.is_homing:
+            print("Gimbal is already homed")
+            return True
+
         print("Starting homing sequence...")
         self.is_homing = True
         self.is_homed = False
@@ -107,12 +113,15 @@ class GimbalController:
                     if line.startswith('P:'):
                         # Parse feedback (format: "P:1234,T:5678,H:1")
                         parts = line.split(',')
+                        # set gimbal state based on feedback
                         self.position.pan = int(parts[0][2:])
                         self.position.tilt = int(parts[1][2:])
                         self.is_homed = parts[2][2:] == '1'
                         self.last_feedback_time = time.time()
                         
-                        if self.is_homed and self.is_homing:
+                        # print('Gimbal State:', self.position.pan, self.position.tilt, self.is_homed)
+
+                        if self.is_homed:
                             # print("Home state achieved")
                             self.is_homing = False
             except (ValueError, IndexError, UnicodeDecodeError) as e:
@@ -134,7 +143,7 @@ class GimbalController:
                 # Send command and verify
                 bytes_written = self.serial.write(command)
                 self.serial.flush()
-                # print(f"Sent command: {list(command)}")  # Debug output
+                print(f"Sent command: {list(command)}")  # Debug output
                 
                 self.process_serial_feedback()
                 self.last_command_time = time.time()
@@ -182,7 +191,6 @@ class GimbalController:
         self.velocity.pan = pan_velocity
         self.velocity.tilt = tilt_velocity
 
-
     def track_object(self, object_position: Tuple[float, float], frame_size: Tuple[int, int]):
         """Track object based on its position in frame"""
         if self.is_homing:
@@ -218,17 +226,17 @@ class GimbalController:
 if __name__ == "__main__":
     try:
         gimbal = GimbalController()
-        success = gimbal.run_homing()
-        if not success:
-            print("Homing failed")
+        # success = gimbal.run_homing()
+        # if not success:
+            # print("Homing failed")
     
-        # issue a velocity commands
+        # # issue a velocity commands
         gimbal.set_velocity(-1000, -400) 
         time.sleep(1.5)
         gimbal.set_velocity(900, 600) 
         time.sleep(1.5)
 
-        # return to neutral position
+        # # return to neutral position
         print("Returning to neutral position")
         gimbal.move_to_neutral()
 

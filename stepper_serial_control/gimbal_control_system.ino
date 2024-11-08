@@ -20,7 +20,7 @@ const long HOMING_SPEED = 1000;        // Speed during homing
 const long MAX_ACCELERATION = 3000;    // Steps per second per second
 const int SERIAL_UPDATE_MS = 50;      // Position feedback interval
 const int COMMAND_TIMEOUT_MS = 250;   // Time before stopping if no commands received
-const int VELOCITY_TO_DISTANCE = 1000; // How far to move based on velocity (adjust as needed)
+const int VELOCITY_TO_DISTANCE = 500; // How far to move based on velocity (adjust as needed)
 
 // System state
 unsigned long lastCommandTime = 0;     // Timestamp of last received command
@@ -301,7 +301,7 @@ void processSerial() {
 }
 
 void sendPositionFeedback() {
-  if (millis() - lastFeedbackTime >= SERIAL_UPDATE_MS) {
+  if (millis() - lastFeedbackTime >= SERIAL_UPDATE_MS && Serial.availableForWrite() >= 30) {
     Serial.print("P:");
     Serial.print(panStepper.currentPosition());
     Serial.print(",T:");
