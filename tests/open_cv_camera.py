@@ -9,7 +9,8 @@ cap = cv2.VideoCapture(0) # 0 is the default camera via USB
 
 print("Default resolution: " + str(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + "x" + str(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 print("Default FPS: " + str(cap.get(cv2.CAP_PROP_FPS)))
-print("Default fourcc: " + str(cap.get(cv2.CAP_PROP_FOURCC)))
+# print("Default fourcc: " + str(cap.get(cv2.CAP_PROP_FOURCC)))
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
 print("Default buffersize: " + str(cap.get(cv2.CAP_PROP_BUFFERSIZE)))
 
 # set the width and height
