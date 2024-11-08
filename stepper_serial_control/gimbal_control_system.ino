@@ -2,8 +2,8 @@
 
 // Define stepper motor connections
 #define PAN_STEP_PIN  2
-#define PAN_DIR_PIN   5
-#define TILT_STEP_PIN 3
+#define PAN_DIR_PIN   3
+#define TILT_STEP_PIN 5
 #define TILT_DIR_PIN  6
 
 // Define endstop pins
@@ -20,7 +20,7 @@ const long HOMING_SPEED = 1000;        // Speed during homing
 const long MAX_ACCELERATION = 3000;    // Steps per second per second
 const int SERIAL_UPDATE_MS = 50;      // Position feedback interval
 const int COMMAND_TIMEOUT_MS = 250;   // Time before stopping if no commands received
-const int VELOCITY_TO_DISTANCE = 2000; // How far to move based on velocity (adjust as needed)
+const int VELOCITY_TO_DISTANCE = 1000; // How far to move based on velocity (adjust as needed)
 
 // System state
 unsigned long lastCommandTime = 0;     // Timestamp of last received command
@@ -86,10 +86,10 @@ bool performHoming() {
   
   switch(homingState) {
     case 1:  // Moving to min positions
-      if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
+      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
         panStepper.setSpeed(0);
       }
-      if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
+      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
         tiltStepper.setSpeed(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
@@ -103,10 +103,10 @@ bool performHoming() {
       break;
 
     case 2:  // move off the endstops
-      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
+      if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
         panStepper.setSpeed(HOMING_SPEED); // Resume full speed once off limit
       }
-      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
+      if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
         tiltStepper.setSpeed(HOMING_SPEED);
       }
       if (panStepper.speed() == (HOMING_SPEED) && tiltStepper.speed() == (HOMING_SPEED)) {
@@ -115,10 +115,10 @@ bool performHoming() {
       break;
     
     case 3: // move to the max positions
-      if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
+      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
         panStepper.setSpeed(0);
       }
-      if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
+      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
         tiltStepper.setSpeed(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
@@ -319,7 +319,7 @@ void loop() {
     processSerial();
     
     // Check endstops before running steppers
-    if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
+    if (digitalRead(PAN_LIMIT_PIN) == LOW) {
       // At limit - update position and stop
       if (panStepper.speed() > 0) {
         panStepper.setCurrentPosition(panRange);
@@ -329,7 +329,7 @@ void loop() {
       panStepper.stop();
     }
     
-    if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
+    if (digitalRead(TILT_LIMIT_PIN) == LOW) {
       // At limit - update position and stop
       if (tiltStepper.speed() > 0) {
         tiltStepper.setCurrentPosition(tiltRange);
