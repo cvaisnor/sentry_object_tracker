@@ -2,17 +2,7 @@
 
 ## Instructions:
 
-*Note: VISCA commands only work with the contour motion detection method.*
-
-**If using contour motion detection:**
-- Change L#24 for using the VISCA command protocol. 
-    - SERIAL = True # Serial connection via Arduino
-    - SERIAL = False # VISCA PTZ Camera
-```bash
-python3 main_contours.py
-```
-
-**If using Yolov8 object detection:**
+**Yolov8 object detection:**
 ```bash
 python3 main_yolo.py
 ```
