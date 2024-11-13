@@ -48,7 +48,7 @@ class GimbalController:
         # System state
         self.is_homed = False
         self.is_homing = False
-        self.home_timeout = 45  # seconds
+        self.home_timeout = 60  # seconds
         self.last_feedback_time = 0
         self.feedback_timeout = 1.0  # seconds
         
@@ -109,7 +109,7 @@ class GimbalController:
             try:
                 line = self.serial.readline().decode().strip()
                 if line:  # Only process non-empty lines
-                    print(f"Received feedback: {line}")  # Debug output
+                    # print(f"Received feedback: {line}")  # Debug output
                     if line.startswith('P:'):
                         # Parse feedback (format: "P:1234,T:5678,H:1")
                         parts = line.split(',')
@@ -143,7 +143,7 @@ class GimbalController:
                 # Send command and verify
                 bytes_written = self.serial.write(command)
                 self.serial.flush()
-                print(f"Sent command: {list(command)}")  # Debug output
+                # print(f"Sent command: {list(command)}")  # Debug output
                 
                 self.process_serial_feedback()
                 self.last_command_time = time.time()
@@ -180,9 +180,9 @@ class GimbalController:
         command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte])
         
         # Debug output
-        print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}")
-        print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}")
-        print(f"Command bytes: {list(command)}")
+        # print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}")
+        # print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}")
+        # print(f"Command bytes: {list(command)}")
         
         # Send command
         self.command_queue.put(command)
@@ -226,22 +226,22 @@ class GimbalController:
 if __name__ == "__main__":
     try:
         gimbal = GimbalController()
-        # success = gimbal.run_homing()
-        # if not success:
-            # print("Homing failed")
+        success = gimbal.run_homing()
+        if not success:
+            print("Homing failed")
     
         # # issue a velocity commands
-        gimbal.set_velocity(-1000, -400) 
-        time.sleep(1.5)
-        gimbal.set_velocity(900, 600) 
-        time.sleep(1.5)
+        # gimbal.set_velocity(-1000, -400) 
+        # time.sleep(1.5)
+        # gimbal.set_velocity(900, 600) 
+        # time.sleep(1.5)
 
         # # return to neutral position
-        print("Returning to neutral position")
-        gimbal.move_to_neutral()
+        # print("Returning to neutral position")
+        # gimbal.move_to_neutral()
 
-        time.sleep(3)
-        print("Exiting...")
+        # time.sleep(3)
+        # print("Exiting...")
     
     except serial.SerialException as e:
         print(f"Failed to connect to gimbal: {e}")
