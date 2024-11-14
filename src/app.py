@@ -190,7 +190,7 @@ tracker = FlaskYOLOTracker()
 @app.route('/')
 def index():
     """Serve the main page"""
-    return render_template('index.html', class_names=tracker.class_names)
+    return render_template('index.html', class_names=sorted(tracker.class_names, key=str.lower)) # sorting
 
 def generate_frames():
     """Generator function for video streaming"""
