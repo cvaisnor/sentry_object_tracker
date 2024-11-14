@@ -262,5 +262,13 @@ def get_state():
         'is_tracking': tracker.is_tracking_enabled
     })
 
+@app.route('/gimbal_position')
+def gimbal_position():
+    """Return current gimbal position"""
+    return jsonify({
+        'pan': tracker.gimbal.position.pan,
+        'tilt': tracker.gimbal.position.tilt
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, threaded=True)
