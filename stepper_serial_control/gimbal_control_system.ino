@@ -122,10 +122,16 @@ bool performHoming() {
         tiltStepper.setSpeed(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
+        delay(100); // Small delay to ensure we're stable at the limit
         panRange = panStepper.currentPosition();  // Record the range at max limit
         tiltRange = tiltStepper.currentPosition();  // Record the range at max limit
-        // Small delay to ensure we're stable at the limit
-        delay(100);
+
+        // Send Range information to Python
+        Serial.print("R:");
+        Serial.print(panRange);
+        Serial.print(",");
+        Serial.println(tiltRange);
+
         // Calculate center positions
         long panCenter = panRange / 2;
         long tiltCenter = tiltRange / 2;
