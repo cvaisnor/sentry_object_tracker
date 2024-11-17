@@ -31,7 +31,7 @@ class FlaskYOLOTracker:
         self.target_lost_time = None
         self.return_to_neutral_delay = 3.0
         self.is_tracking_enabled = True
-        self.target_class = 'cell phone' # Default target class
+        self.target_class = 'cell phone' # Default target class``
         
 
         # Manual control state

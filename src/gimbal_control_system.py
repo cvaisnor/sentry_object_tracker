@@ -126,7 +126,7 @@ class GimbalController:
             try:
                 line = self.serial.readline().decode().strip()
                 if line:
-                    print(f"Feedback: {line}")
+                    # print(f"Feedback: {line}")
                     if line.startswith('P:'):
                         # Parse feedback (format: "P:1234,T:5678,H:1")
                         parts = line.split(',')
@@ -233,7 +233,7 @@ class GimbalController:
                 
                 bytes_written = self.serial.write(command)
                 self.serial.flush()
-                print(f"Sent command: {list(command)}")  # Debug output
+                # print(f"Sent command: {list(command)}")  # Debug output
                 
                 self.process_serial_feedback()
                 self.last_command_time = time.time()
