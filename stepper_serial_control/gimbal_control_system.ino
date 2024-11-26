@@ -1,10 +1,13 @@
 #include <AccelStepper.h>
+#include <Servo.h>
 
 // Define stepper motor connections
 #define PAN_STEP_PIN  2
 #define PAN_DIR_PIN   3
 #define TILT_STEP_PIN 5
 #define TILT_DIR_PIN  6
+
+Servo zoomServo;  // create servo object
 
 // Define endstop pins
 #define PAN_LIMIT_PIN  9
@@ -31,7 +34,7 @@ long tiltRange = 0;                   // Total range of tilt motion
 bool isHoming = false;                // Whether currently in homing sequence
 
 // Communication buffer
-const int BUFFER_SIZE = 3;
+const int BUFFER_SIZE = 4;
 uint8_t cmdBuffer[BUFFER_SIZE];
 int bufferIndex = 0;
 
@@ -53,6 +56,10 @@ void setup() {
   pinMode(PAN_LIMIT_PIN, INPUT_PULLUP);
   pinMode(TILT_LIMIT_PIN, INPUT_PULLUP);
   
+  // Attach servo to pin 9
+  zoomServo.attach(7);
+  zoomServo.write(90);
+
   while (!Serial) {
     delay(10);
   }
@@ -251,19 +258,13 @@ void processVelocityCommand(uint8_t panByte, uint8_t tiltByte) {
   velocityToPosition(tiltVelocity, tiltStepper, tiltRange);
 }
 
-void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2) {
-  // Debug received command
-  // Serial.print("Processing command: ");
-  // Serial.print(cmd);
-  // Serial.print(" ");
-  // Serial.print(data1);
-  // Serial.print(" ");
-  // Serial.println(data2);
+void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2, uint8_t data3) {
   
   switch(cmd) {
     case CMD_VELOCITY:
       if (!isHoming) {
         processVelocityCommand(data1, data2);
+        processZoomServo(data3);
       }
       break;
       
@@ -280,29 +281,45 @@ void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2) {
   lastCommandTime = millis();
 }
 
+void processZoomServo(uint8_t zoomServoByte) {
+  // Convert from byte (0-255) to angle (0-180)
+  int angle = map(zoomServoByte, 0, 255, 0, 180);
+  
+  // Debug output
+  // Serial.print("Received zoom servo byte: ");
+  // Serial.print(zoomServoByte);
+  // Serial.print(" Angle: ");
+  // Serial.println(angle);
+  
+  zoomServo.write(angle);
+}
+
 void processSerial() {
-  // Wait until we have at least 3 bytes available
-  if (Serial.available() >= 3) {
+  // Wait until we have at least 4 bytes available
+  if (Serial.available() >= 4) {
     // Clear the input buffer first
-    while (Serial.available() > 3) {
+    while (Serial.available() > 4) {
       Serial.read();
     }
     
-    // Read exactly 3 bytes
-    uint8_t cmd = Serial.read();
-    uint8_t data1 = Serial.read();
-    uint8_t data2 = Serial.read();
+    // Read exactly 4 bytes
+    uint8_t cmd = Serial.read(); // Command byte
+    uint8_t data1 = Serial.read(); // pan
+    uint8_t data2 = Serial.read(); // tilt
+    uint8_t data3 = Serial.read(); // zoomServo
     
     // Debug received command
-    // Serial.print("Received command bytes: [");
-    // Serial.print(cmd);
-    // Serial.print(", ");
-    // Serial.print(data1);
-    // Serial.print(", ");
-    // Serial.print(data2);
-    // Serial.println("]");
+    Serial.print("Received command bytes: [");
+    Serial.print(cmd);
+    Serial.print(", ");
+    Serial.print(data1);
+    Serial.print(", ");
+    Serial.print(data2);
+    Serial.print(", ");
+    Serial.print(data3);
+    Serial.println("]");
     
-    processCommand(cmd, data1, data2);
+    processCommand(cmd, data1, data2, data3);
   }
 }
 
@@ -312,8 +329,11 @@ void sendPositionFeedback() {
     Serial.print(panStepper.currentPosition());
     Serial.print(",T:");
     Serial.print(tiltStepper.currentPosition());
+    Serial.print(",Z:");
+    Serial.print(zoomServo.read());
     Serial.print(",H:");
     Serial.println(isHomed ? 1 : 0);
+    
     lastFeedbackTime = millis();
   }
 }

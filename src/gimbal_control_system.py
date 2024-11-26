@@ -26,6 +26,7 @@ class ArduinoParameters:
 class GimbalPosition:
     pan: float = 0.0
     tilt: float = 0.0
+    zoom: float = 0.0 # 0-180 degrees for zoom servo
 
 @dataclass
 class GimbalRange:
@@ -92,7 +93,7 @@ class GimbalController:
         self.is_homed = False
         
         # Send home command
-        command = bytes([CommandType.HOME, 0, 0])
+        command = bytes([CommandType.HOME, 0, 0, 0])
         self.command_queue.put(command)
         
         # Wait for homing to complete
@@ -126,13 +127,15 @@ class GimbalController:
             try:
                 line = self.serial.readline().decode().strip()
                 if line:
-                    # print(f"Feedback: {line}")
+                    print(f"Feedback: {line}")
                     if line.startswith('P:'):
-                        # Parse feedback (format: "P:1234,T:5678,H:1")
+                        # Parse feedback (format: "P:1234,T:5678,Z:180,H:")
                         parts = line.split(',')
                         self.position.pan = int(parts[0][2:])
                         self.position.tilt = int(parts[1][2:])
-                        self.is_homed = parts[2][2:] == '1'
+                        self.position.zoom = int(parts[2][2:])
+                        if parts[3][2:] == '1':
+                            self.is_homed = True
                         self.last_feedback_time = time.time()
                         if self.is_homed:
                             # print("Home state achieved")
@@ -253,7 +256,7 @@ class GimbalController:
         command = bytes([CommandType.NEUTRAL, 0, 0])
         self.command_queue.put(command)
 
-    def set_velocity(self, pan_velocity: float, tilt_velocity: float):
+    def set_velocity(self, pan_velocity: float, tilt_velocity: float, zoom_angle: float = 0.0):
         """Set velocity for velocity control mode"""
         if self.is_homing:
             return
@@ -266,12 +269,16 @@ class GimbalController:
         pan_byte = int(((pan_velocity / self.max_velocity) * 127) + 128)
         tilt_byte = int(((tilt_velocity / self.max_velocity) * 127) + 128)
         
+        # zoom angle is always between 0-180 degrees
+        zoom_angle = np.clip(zoom_angle, 0, 180)
+        zoom_byte = int((zoom_angle / 180) * 255)
+
         # Create command bytes
-        command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte])
+        command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte, zoom_byte])
         
         # Debug output
-        # print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}")
-        # print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}")
+        print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}, zoom={zoom_angle}")
+        # print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}, zoom={zoom_byte}")
         # print(f"Command bytes: {list(command)}")
         
         # Send command
@@ -280,6 +287,7 @@ class GimbalController:
         # Store current velocities
         self.velocity.pan = pan_velocity
         self.velocity.tilt = tilt_velocity
+        self.position.zoom = zoom_angle
 
     def track_object(self, object_position: Tuple[float, float], frame_size: Tuple[int, int]):
         """Track object based on its position in frame"""
@@ -323,23 +331,15 @@ if __name__ == "__main__":
         print('Pan range:', gimbal.range.pan_range)
         print('Tilt range:', gimbal.range.tilt_range)
         # issue a velocity commands
-        # print("Issuing velocity commands...")
-        # gimbal.set_velocity(-1000, -400) 
-        # time.sleep(1.5)
-        # gimbal.set_velocity(900, 600) 
-        # time.sleep(1.5)
-
-        # # Example of absolute positioning using range values
-        # pan_mid = gimbal.range.pan_min + (gimbal.range.pan_range // 2)
-        # tilt_mid = gimbal.range.tilt_min + (gimbal.range.tilt_range // 2)
-        
-        # print('Issuing absolute positioning command...')
-        # gimbal.set_position(pan_mid, tilt_mid)  # Move to center position
-        # time.sleep(2)
+        print("Issuing velocity commands...")
+        gimbal.set_velocity(-1000, -400, 20) 
+        time.sleep(1.5)
+        gimbal.set_velocity(900, 600, 140) 
+        time.sleep(1.5)
 
         # return to neutral position
-        # print("Returning to neutral position")
-        # gimbal.move_to_neutral()
+        print("Returning to neutral position")
+        gimbal.move_to_neutral()
 
         # time.sleep(3)
         print("Exiting...")
