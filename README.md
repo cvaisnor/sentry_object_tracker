@@ -1,11 +1,14 @@
 # Sentry Camera Object Tracker
 
-## Instructions:
+**Web Interface**:
 
-**Yolov8 object detection:**
+<img src="images/flask_app.png" width="85%" height="85%">
+
+## To run Flask app:
 ```bash
-python3 main_yolo.py
+python app.py
 ```
+- **Web interface is @ localhost:5000**
 
 **Linux Bug**:
 Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select() timeout" error:
@@ -13,10 +16,6 @@ Temp fix for "global cap_v4l.cpp:1119 tryIoctl VIDEOIO(V4L2:/dev/video0): select
 sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000
 ```
 - This needs to be ran every time before a script is ran that uses the camera.
-
-**Version 5**:
-
-<img src="images/v5.jpeg" width="75%" height="75%">
 
 **Version 4**:
 

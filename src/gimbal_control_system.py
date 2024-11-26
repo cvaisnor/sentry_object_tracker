@@ -2,20 +2,35 @@ import serial
 import time
 import queue
 import threading
+import json
 from dataclasses import dataclass
 from enum import Enum, auto, IntEnum
-from typing import Optional, Tuple, Union
+from typing import Tuple
 import numpy as np
 
 class CommandType(IntEnum):
     VELOCITY = 0
     HOME = 1
     NEUTRAL = 2
+    POSITION = 3  # command type for absolute positioning
+    SET_PARAM = 4  # command type for parameter updates
+
+@dataclass
+class ArduinoParameters:
+    max_speed: int = 4000
+    max_acceleration: int = 3000
+    homing_speed: int = 2000
+    velocity_to_distance: int = 1000
 
 @dataclass
 class GimbalPosition:
     pan: float = 0.0
     tilt: float = 0.0
+
+@dataclass
+class GimbalRange:
+    pan_range: int = 0
+    tilt_range: int = 0
 
 @dataclass
 class GimbalVelocity:
@@ -33,6 +48,8 @@ class GimbalController:
         self.target_position = GimbalPosition()
         self.velocity = GimbalVelocity()
         self.control_mode = ControlMode.VELOCITY
+        self.range = GimbalRange()
+        self.parameters = ArduinoParameters() # Arduino parameters
 
         # Control parameters
         self.max_velocity = 1000
@@ -108,26 +125,100 @@ class GimbalController:
         while self.serial.in_waiting:
             try:
                 line = self.serial.readline().decode().strip()
-                if line:  # Only process non-empty lines
-                    print(f"Received feedback: {line}")  # Debug output
+                if line:
+                    # print(f"Feedback: {line}")
                     if line.startswith('P:'):
                         # Parse feedback (format: "P:1234,T:5678,H:1")
                         parts = line.split(',')
-                        # set gimbal state based on feedback
                         self.position.pan = int(parts[0][2:])
                         self.position.tilt = int(parts[1][2:])
                         self.is_homed = parts[2][2:] == '1'
                         self.last_feedback_time = time.time()
-                        
-                        # print('Gimbal State:', self.position.pan, self.position.tilt, self.is_homed)
-
                         if self.is_homed:
                             # print("Home state achieved")
                             self.is_homing = False
+                    
+                    elif line.startswith('R:'):
+                        # Parse feedback (format: "R:1000,1000") # only sends the max steps, min is always 0
+                        try:
+                            parts = line.split(',')
+                            self.range.pan_range = int(parts[0][2:])
+                            self.range.tilt_range = int(parts[1])
+                        except (ValueError, IndexError) as e:
+                            print(f"Error parsing range data: {e}")
+                    elif line.startswith('OK:'):
+                        # Handle acknowledgments
+                        pass
+
             except (ValueError, IndexError, UnicodeDecodeError) as e:
                 print(f"Error processing feedback: {e}")
                 pass
     
+    def set_position(self, pan_position: int, tilt_position: int):
+        """Set absolute position for both axes"""
+        if self.is_homing:
+            return
+            
+        if not self.is_homed:
+            print("Cannot move to position: Gimbal not homed")
+            return
+            
+        # Check if position is within range
+        if not self.range.is_within_range(pan_position, tilt_position):
+            print(f"Position ({pan_position}, {tilt_position}) out of range!")
+            print(f"Valid ranges - Pan: [{self.range.pan_min}, {self.range.pan_max}]")
+            print(f"Tilt: [{self.range.tilt_min}, {self.range.tilt_max}]")
+            return
+            
+        # Convert positions to bytes (16-bit values split into 2 bytes each)
+        pan_high = (pan_position >> 8) & 0xFF
+        pan_low = pan_position & 0xFF
+        tilt_high = (tilt_position >> 8) & 0xFF
+        tilt_low = tilt_position & 0xFF
+        
+        command = bytes([CommandType.POSITION, pan_high, pan_low, tilt_high, tilt_low])
+        self.command_queue.put(command)
+        
+        self.target_position.pan = pan_position
+        self.target_position.tilt = tilt_position
+
+    def update_parameters(self, params: dict):
+        """Update one or more parameters on the Arduino"""
+        # Validate parameters
+        valid_params = {
+            'max_speed': (0, 4000),
+            'max_acceleration': (0, 4000),
+            'homing_speed': (0, 4000),
+            'velocity_to_distance': (0, 2000)
+        }
+        
+        # Filter and validate parameters
+        update_params = {}
+        for key, value in params.items():
+            if key in valid_params:
+                min_val, max_val = valid_params[key]
+                if min_val <= value <= max_val:
+                    update_params[key] = value
+                else:
+                    print(f"Parameter {key} value {value} out of range [{min_val}, {max_val}]")
+        
+        if not update_params:
+            return
+            
+        # Convert parameters to JSON string
+        param_str = json.dumps(update_params)
+        
+        # Convert string to bytes, limiting to 64 bytes for safety
+        param_bytes = param_str.encode('utf-8')[:64]
+        
+        # Create command: [CMD_TYPE, LENGTH, PARAM_BYTES...]
+        command = bytes([CommandType.SET_PARAM, len(param_bytes)]) + param_bytes
+        self.command_queue.put(command)
+        
+        # Update local parameters
+        for key, value in update_params.items():
+            setattr(self.parameters, key, value)
+
     def _command_worker(self):
         """Worker thread for processing and sending commands"""
         while self.running:
@@ -140,10 +231,9 @@ class GimbalController:
                 if time_since_last < self.min_command_interval:
                     time.sleep(self.min_command_interval - time_since_last)
                 
-                # Send command and verify
                 bytes_written = self.serial.write(command)
                 self.serial.flush()
-                print(f"Sent command: {list(command)}")  # Debug output
+                # print(f"Sent command: {list(command)}")  # Debug output
                 
                 self.process_serial_feedback()
                 self.last_command_time = time.time()
@@ -180,9 +270,9 @@ class GimbalController:
         command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte])
         
         # Debug output
-        print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}")
-        print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}")
-        print(f"Command bytes: {list(command)}")
+        # print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}")
+        # print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}")
+        # print(f"Command bytes: {list(command)}")
         
         # Send command
         self.command_queue.put(command)
@@ -226,21 +316,32 @@ class GimbalController:
 if __name__ == "__main__":
     try:
         gimbal = GimbalController()
-        # success = gimbal.run_homing()
-        # if not success:
-            # print("Homing failed")
-    
-        # # issue a velocity commands
-        gimbal.set_velocity(-1000, -400) 
-        time.sleep(1.5)
-        gimbal.set_velocity(900, 600) 
-        time.sleep(1.5)
+        success = gimbal.run_homing()
+        if not success:
+            print("Homing failed")
 
-        # # return to neutral position
-        print("Returning to neutral position")
-        gimbal.move_to_neutral()
+        print('Pan range:', gimbal.range.pan_range)
+        print('Tilt range:', gimbal.range.tilt_range)
+        # issue a velocity commands
+        # print("Issuing velocity commands...")
+        # gimbal.set_velocity(-1000, -400) 
+        # time.sleep(1.5)
+        # gimbal.set_velocity(900, 600) 
+        # time.sleep(1.5)
 
-        time.sleep(3)
+        # # Example of absolute positioning using range values
+        # pan_mid = gimbal.range.pan_min + (gimbal.range.pan_range // 2)
+        # tilt_mid = gimbal.range.tilt_min + (gimbal.range.tilt_range // 2)
+        
+        # print('Issuing absolute positioning command...')
+        # gimbal.set_position(pan_mid, tilt_mid)  # Move to center position
+        # time.sleep(2)
+
+        # return to neutral position
+        # print("Returning to neutral position")
+        # gimbal.move_to_neutral()
+
+        # time.sleep(3)
         print("Exiting...")
     
     except serial.SerialException as e:

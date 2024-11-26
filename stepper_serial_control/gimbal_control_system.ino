@@ -15,12 +15,12 @@ AccelStepper panStepper(AccelStepper::DRIVER, PAN_STEP_PIN, PAN_DIR_PIN);
 AccelStepper tiltStepper(AccelStepper::DRIVER, TILT_STEP_PIN, TILT_DIR_PIN);
 
 // System parameters
-const long MAX_SPEED = 2000;          // Maximum speed in steps per second
-const long HOMING_SPEED = 1000;        // Speed during homing
+const long MAX_SPEED = 4000;          // Maximum speed in steps per second
+const long HOMING_SPEED = 2000;        // Speed during homing
 const long MAX_ACCELERATION = 3000;    // Steps per second per second
 const int SERIAL_UPDATE_MS = 50;      // Position feedback interval
 const int COMMAND_TIMEOUT_MS = 250;   // Time before stopping if no commands received
-const int VELOCITY_TO_DISTANCE = 500; // How far to move based on velocity (adjust as needed)
+const int VELOCITY_TO_DISTANCE = 1000; // How far to move based on velocity (adjust as needed)
 
 // System state
 unsigned long lastCommandTime = 0;     // Timestamp of last received command
@@ -122,10 +122,16 @@ bool performHoming() {
         tiltStepper.setSpeed(0);
       }
       if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
+        delay(100); // Small delay to ensure we're stable at the limit
         panRange = panStepper.currentPosition();  // Record the range at max limit
         tiltRange = tiltStepper.currentPosition();  // Record the range at max limit
-        // Small delay to ensure we're stable at the limit
-        delay(100);
+
+        // Send Range information to Python
+        Serial.print("R:");
+        Serial.print(panRange);
+        Serial.print(",");
+        Serial.println(tiltRange);
+
         // Calculate center positions
         long panCenter = panRange / 2;
         long tiltCenter = tiltRange / 2;
