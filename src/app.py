@@ -167,7 +167,7 @@ class FlaskYOLOTracker:
             # Check for manual control timeout
             if time.time() - self.last_manual_command_time > self.manual_timeout:
                 with self.lock:
-                    self.gimbal.set_velocity(0, 0)  # Stop movement if no recent commands
+                    self.gimbal.set_velocity(0, 0, self.gimbal.position.zoom)  # Stop movement if no recent commands
         
         # Draw system status
         status_text = "TRACKING MODE" if self.is_tracking_enabled else "MANUAL MODE"
@@ -178,10 +178,10 @@ class FlaskYOLOTracker:
         ret, buffer = cv2.imencode('.jpg', frame)
         return buffer.tobytes()
 
-    def handle_manual_control(self, x_velocity, y_velocity):
+    def handle_manual_control(self, x_velocity, y_velocity, zoom_angle):
         """Handle manual control inputs"""
         with self.lock:
-            self.gimbal.set_velocity(x_velocity, y_velocity)
+            self.gimbal.set_velocity(x_velocity, y_velocity, zoom_angle)
             self.last_manual_command_time = time.time()
 
 # Initialize tracker
@@ -229,10 +229,11 @@ def manual_control():
         data = request.get_json()
         x_velocity = float(data['x'])  # -1 to 1
         y_velocity = float(data['y'])  # -1 to 1
-        
+        zoom_angle = float(data['angle'])  # 0 to 180
+
         # Only process manual control when tracking is disabled
         if not tracker.is_tracking_enabled:
-            tracker.handle_manual_control(x_velocity, y_velocity)
+            tracker.handle_manual_control(x_velocity, y_velocity, zoom_angle)
             return json.dumps({'status': 'success'})
         return json.dumps({'status': 'error', 'message': 'Tracking is enabled'})
     except Exception as e:
@@ -268,6 +269,38 @@ def gimbal_position():
     return jsonify({
         'pan': tracker.gimbal.position.pan,
         'tilt': tracker.gimbal.position.tilt
+    })
+
+# @app.route('/set_zoom', methods=['POST'])
+# def set_zoom():
+#     """Set the zoom angle"""
+#     try:
+#         data = request.get_json()
+#         zoom_angle = float(data['angle'])
+        
+#         # Send zoom command using current pan/tilt velocity
+#         tracker.gimbal.set_velocity(
+#             tracker.gimbal.velocity.pan,
+#             tracker.gimbal.velocity.tilt,
+#             zoom_angle
+#         )
+        
+#         return jsonify({
+#             'status': 'success',
+#             'message': f'Zoom set to {zoom_angle}°'
+#         })
+#     except Exception as e:
+#         return jsonify({
+#             'status': 'error',
+#             'message': str(e)
+#         })
+
+@app.route('/get_zoom')
+def get_zoom():
+    """Get current zoom angle"""
+    return jsonify({
+        'status': 'success',
+        'zoom': tracker.gimbal.position.zoom
     })
 
 if __name__ == '__main__':

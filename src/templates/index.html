@@ -127,6 +127,24 @@
         .control-status.manual {
             color: #FF9800;
         }
+        .zoom-control {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        .zoom-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .zoom-value {
+            text-align: center;
+            font-weight: bold;
+            color: #2196F3;
+        }
     </style>
 </head>
 <body>
@@ -160,10 +178,16 @@
                 <div id="joystick-container"></div>
                 <p>Use the joystick to control gimbal movement</p>
                 <div id="controlStatus" class="control-status tracking">Tracking Mode Active</div>
+            
+            <div class="zoom-control">
+                <h3>Zoom Control</h3>
+                <input type="range" id="zoomSlider" class="zoom-slider" 
+                        min="0" max="180" value="90" step="1">
+                <div class="zoom-value">Zoom: <span id="zoomValue">90</span>°</div>
             </div>
         </div>
         
-        <div id="status"></div>
+        <!-- <div id="status"></div> -->
     </div>
 
     <script>
@@ -306,6 +330,61 @@
                 updateStatus('Error updating target class');
             });
         }
+
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        
+        zoomSlider.addEventListener('input', function() {
+            zoomValue.textContent = this.value;
+        });
+        
+        zoomSlider.addEventListener('change', function() {
+            const zoomAngle = parseFloat(this.value);
+            updateZoom(zoomAngle);
+        });
+        
+        function updateZoom(angle) {
+            fetch('/set_zoom', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ angle: angle })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateStatus(data.message);
+                } else {
+                    updateStatus('Error setting zoom');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                updateStatus('Error setting zoom');
+            });
+        }
+
+        // Function to fetch current zoom state
+        async function getCurrentZoom() {
+            try {
+                const response = await fetch('/get_zoom');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    zoomSlider.value = data.zoom;
+                    zoomValue.textContent = data.zoom;
+                }
+            } catch (error) {
+                console.error('Error fetching zoom:', error);
+            }
+        }
+
+        // Add zoom state fetch to window load
+        window.addEventListener('load', async () => {
+            await getCurrentState();
+            await getCurrentZoom();
+            initJoystick();
+        });
 
         function updateStatus(message) {
             const status = document.getElementById('status');
