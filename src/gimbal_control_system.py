@@ -127,7 +127,7 @@ class GimbalController:
             try:
                 line = self.serial.readline().decode().strip()
                 if line:
-                    print(f"Feedback: {line}")
+                    # print(f"Feedback: {line}")
                     if line.startswith('P:'):
                         # Parse feedback (format: "P:1234,T:5678,Z:180,H:")
                         parts = line.split(',')
@@ -253,14 +253,14 @@ class GimbalController:
             print("Cannot move to neutral position: Gimbal not homed")
             return
 
-        command = bytes([CommandType.NEUTRAL, 0, 0])
+        command = bytes([CommandType.NEUTRAL, 0, 0, 0])
         self.command_queue.put(command)
 
-    def set_velocity(self, pan_velocity: float, tilt_velocity: float, zoom_angle: float = 0.0):
-        """Set velocity for velocity control mode"""
+    def set_velocity(self, pan_velocity: float, tilt_velocity: float, zoom_angle: float = None):
+        """Set velocity for velocity control mode and zoom angle"""
         if self.is_homing:
             return
-
+        
         # Clip velocities to max range
         pan_velocity = np.clip(pan_velocity, -self.max_velocity, self.max_velocity)
         tilt_velocity = np.clip(tilt_velocity, -self.max_velocity, self.max_velocity)
@@ -269,17 +269,19 @@ class GimbalController:
         pan_byte = int(((pan_velocity / self.max_velocity) * 127) + 128)
         tilt_byte = int(((tilt_velocity / self.max_velocity) * 127) + 128)
         
-        # zoom angle is always between 0-180 degrees
-        zoom_angle = np.clip(zoom_angle, 0, 180)
-        zoom_byte = int((zoom_angle / 180) * 255)
+        # Only update zoom if a new angle is provided, otherwise maintain current zoom
+        if zoom_angle is not None:
+            # zoom angle is always between 0-180 degrees
+            zoom_angle = np.clip(zoom_angle, 0, 180)
+            self.position.zoom = zoom_angle
+        
+        zoom_byte = int((self.position.zoom / 180) * 255)
 
         # Create command bytes
         command = bytes([CommandType.VELOCITY, pan_byte, tilt_byte, zoom_byte])
         
         # Debug output
-        print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}, zoom={zoom_angle}")
-        # print(f"Converted to bytes: pan={pan_byte}, tilt={tilt_byte}, zoom={zoom_byte}")
-        # print(f"Command bytes: {list(command)}")
+        print(f"Sending command - Raw velocities: pan={pan_velocity}, tilt={tilt_velocity}, zoom={self.position.zoom}")
         
         # Send command
         self.command_queue.put(command)
@@ -287,7 +289,6 @@ class GimbalController:
         # Store current velocities
         self.velocity.pan = pan_velocity
         self.velocity.tilt = tilt_velocity
-        self.position.zoom = zoom_angle
 
     def track_object(self, object_position: Tuple[float, float], frame_size: Tuple[int, int]):
         """Track object based on its position in frame"""
@@ -312,7 +313,8 @@ class GimbalController:
         else:
             tilt_velocity = 0
 
-        self.set_velocity(pan_velocity, tilt_velocity)
+        # Pass None for zoom_angle to maintain current zoom during tracking
+        self.set_velocity(pan_velocity, tilt_velocity, None)
 
     def close(self):
         """Cleanup resources"""

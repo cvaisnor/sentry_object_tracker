@@ -192,8 +192,84 @@
 
     <script>
 
-        let isTracking = true;  // Default state
+        let isTracking = true;
         let joystick = null;
+        let currentZoom = 0; // Default zoom value
+
+        // Function to send manual control command with current zoom
+        function sendManualCommand(x, y) {
+            if (!isTracking) {
+                fetch('/manual_control', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        x: x,
+                        y: y,
+                        zoom: currentZoom
+                    })
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        }
+
+        // Modified zoom slider handler
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        
+        zoomSlider.addEventListener('input', function() {
+            zoomValue.textContent = this.value;
+            currentZoom = parseFloat(this.value);
+            
+            // If in manual mode, send command with current joystick position and new zoom
+            if (!isTracking && joystick && joystick.get()) {
+                const pos = joystick.get().position;
+                const maxDistance = 75;
+                const x = Math.cos(pos.angle) * Math.min(pos.distance / maxDistance, 1) * 1000;
+                const y = -Math.sin(pos.angle) * Math.min(pos.distance / maxDistance, 1) * 1000;
+                sendManualCommand(x, y);
+            } else if (!isTracking) {
+                // If joystick is at rest, send command with zero velocity and new zoom
+                sendManualCommand(0, 0);
+            }
+        });
+
+        function enableJoystickControls() {
+            joystick.off('move');
+            joystick.off('end');
+            
+            joystick.on('move', (evt, data) => {
+                if (!isTracking) {
+                    const maxDistance = 75;
+                    const x = Math.cos(data.angle.radian) * Math.min(data.distance / maxDistance, 1) * 1000;
+                    const y = -Math.sin(data.angle.radian) * Math.min(data.distance / maxDistance, 1) * 1000;
+                    
+                    sendManualCommand(x, y);
+                }
+            });
+            
+            joystick.on('end', () => {
+                if (!isTracking) {
+                    sendManualCommand(0, 0);
+                }
+            });
+        }
+
+        // Function to fetch current zoom state
+        async function getCurrentZoom() {
+            try {
+                const response = await fetch('/get_zoom');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    currentZoom = data.zoom;
+                    zoomSlider.value = data.zoom;
+                    zoomValue.textContent = data.zoom;
+                }
+            } catch (error) {
+                console.error('Error fetching zoom:', error);
+            }
+        }
 
         // Function to fetch current tracking state from server
         async function getCurrentState() {
@@ -206,14 +282,6 @@
                 console.error('Error fetching state:', error);
             }
         }
-
-        // Initialize on page load
-        window.addEventListener('load', async () => {
-            // First get the current state from server
-            await getCurrentState();
-            // Then initialize joystick
-            initJoystick();
-        });
 
         function updateTrackingUI() {
             const trackingButton = document.getElementById('trackingButton');
@@ -232,32 +300,6 @@
                     enableJoystickControls();
                 }
             }
-        }
-
-        function enableJoystickControls() {
-            // Remove existing listeners first to prevent duplicates
-            joystick.off('move');
-            joystick.off('end');
-            
-            // Add new listeners
-            joystick.on('move', (evt, data) => {
-                if (!isTracking) {
-                    const maxDistance = 75;
-                    const x = Math.cos(data.angle.radian) * Math.min(data.distance / maxDistance, 1) * 1000;
-                    const y = -Math.sin(data.angle.radian) * Math.min(data.distance / maxDistance, 1) * 1000;
-                    
-                    const scaledX = Math.round(x);
-                    const scaledY = Math.round(y);
-                    
-                    sendManualCommand(scaledX, scaledY);
-                }
-            });
-            
-            joystick.on('end', () => {
-                if (!isTracking) {
-                    sendManualCommand(0, 0);
-                }
-            });
         }
 
         function initJoystick() {
@@ -280,37 +322,28 @@
         }
 
         function toggleTracking() {
+            console.log('Toggling tracking mode'); // Add logging
             sendCommand('toggle_tracking')
-                .then(response => response.json())
                 .then(data => {
-                    isTracking = !isTracking;
-                    updateTrackingUI();
-                    // Ensure gimbal stops when switching to tracking mode
-                    if (isTracking) {
-                        sendManualCommand(0, 0);
+                    console.log('Toggle response:', data); // Add logging
+                    if (data.status === 'success') {
+                        isTracking = !isTracking;
+                        updateTrackingUI();
+                        // Ensure gimbal stops when switching to tracking mode
+                        if (isTracking) {
+                            sendManualCommand(0, 0);
+                        }
+                        updateStatus(data.message);
+                    } else {
+                        console.error('Error:', data.message);
+                        updateStatus('Error toggling tracking mode');
                     }
-                    updateStatus(data.message);
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     updateStatus('Error toggling tracking mode');
                 });
-        }
-
-        function sendManualCommand(x, y) {
-            fetch('/manual_control', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ x, y })
-            })
-            .catch(error => console.error('Error:', error));
-        }
-
-        function sendCommand(action) {
-            return fetch(`/control/${action}`);
-        }
+}
 
         function updateTargetClass() {
             const selectedClass = document.getElementById('targetClass').value;
@@ -331,61 +364,6 @@
             });
         }
 
-        const zoomSlider = document.getElementById('zoomSlider');
-        const zoomValue = document.getElementById('zoomValue');
-        
-        zoomSlider.addEventListener('input', function() {
-            zoomValue.textContent = this.value;
-        });
-        
-        zoomSlider.addEventListener('change', function() {
-            const zoomAngle = parseFloat(this.value);
-            updateZoom(zoomAngle);
-        });
-        
-        function updateZoom(angle) {
-            fetch('/set_zoom', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ angle: angle })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    updateStatus(data.message);
-                } else {
-                    updateStatus('Error setting zoom');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                updateStatus('Error setting zoom');
-            });
-        }
-
-        // Function to fetch current zoom state
-        async function getCurrentZoom() {
-            try {
-                const response = await fetch('/get_zoom');
-                const data = await response.json();
-                if (data.status === 'success') {
-                    zoomSlider.value = data.zoom;
-                    zoomValue.textContent = data.zoom;
-                }
-            } catch (error) {
-                console.error('Error fetching zoom:', error);
-            }
-        }
-
-        // Add zoom state fetch to window load
-        window.addEventListener('load', async () => {
-            await getCurrentState();
-            await getCurrentZoom();
-            initJoystick();
-        });
-
         function updateStatus(message) {
             const status = document.getElementById('status');
             status.textContent = message;
@@ -393,6 +371,28 @@
                 status.textContent = '';
             }, 3000);
         }
+
+        function sendCommand(command) {
+            console.log(`Sending command: ${command}`); // Add logging
+            return fetch(`/control/${command}`)
+                .then(response => {
+                     if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+            .catch(error => {
+                console.error('Error sending command:', error);
+                throw error;
+        });
+}
+
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            await getCurrentState();
+            await getCurrentZoom();
+            initJoystick();
+        });
     </script>
 </body>
 </html>

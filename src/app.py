@@ -178,8 +178,8 @@ class FlaskYOLOTracker:
         ret, buffer = cv2.imencode('.jpg', frame)
         return buffer.tobytes()
 
-    def handle_manual_control(self, x_velocity, y_velocity, zoom_angle):
-        """Handle manual control inputs"""
+    def handle_manual_control(self, x_velocity, y_velocity, zoom_angle=None):
+        """Handle manual control inputs with integrated zoom"""
         with self.lock:
             self.gimbal.set_velocity(x_velocity, y_velocity, zoom_angle)
             self.last_manual_command_time = time.time()
@@ -212,27 +212,32 @@ def control(action):
     """Handle control actions"""
     if action == 'home':
         tracker.initialize_system()
-        return json.dumps({'status': 'success', 'message': 'Homing system'})
+        return jsonify({'status': 'success', 'message': 'Homing system'})
     elif action == 'neutral':
         tracker.gimbal.move_to_neutral()
-        return json.dumps({'status': 'success', 'message': 'Moving to neutral position'})
+        return jsonify({'status': 'success', 'message': 'Moving to neutral position'})
     elif action == 'toggle_tracking':
-        tracker.is_tracking_enabled = not tracker.is_tracking_enabled
-        status = 'enabled' if tracker.is_tracking_enabled else 'disabled'
-        return json.dumps({'status': 'success', 'message': f'Tracking {status}'})
-    return json.dumps({'status': 'error', 'message': 'Invalid action'})
+        try:
+            tracker.is_tracking_enabled = not tracker.is_tracking_enabled
+            status = 'enabled' if tracker.is_tracking_enabled else 'disabled'
+            return jsonify({'status': 'success', 'message': f'Tracking {status}'})
+        except Exception as e:
+            print(f"Error toggling tracking: {str(e)}")  # Add error logging
+            return jsonify({'status': 'error', 'message': str(e)})
+    return jsonify({'status': 'error', 'message': 'Invalid action'})
 
 @app.route('/manual_control', methods=['POST'])
 def manual_control():
-    """Handle manual control commands from joystick"""
+    """Handle manual control commands from joystick with integrated zoom"""
     try:
         data = request.get_json()
         x_velocity = float(data['x'])  # -1 to 1
         y_velocity = float(data['y'])  # -1 to 1
-        zoom_angle = float(data['angle'])  # 0 to 180
+        zoom_angle = data.get('zoom')  # Optional zoom angle
 
         # Only process manual control when tracking is disabled
         if not tracker.is_tracking_enabled:
+            # Convert joystick values to velocities and include current zoom
             tracker.handle_manual_control(x_velocity, y_velocity, zoom_angle)
             return json.dumps({'status': 'success'})
         return json.dumps({'status': 'error', 'message': 'Tracking is enabled'})
