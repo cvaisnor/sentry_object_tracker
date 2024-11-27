@@ -56,9 +56,9 @@ void setup() {
   pinMode(PAN_LIMIT_PIN, INPUT_PULLUP);
   pinMode(TILT_LIMIT_PIN, INPUT_PULLUP);
   
-  // Attach servo to pin 9
+  // Attach servo to pin 7
   zoomServo.attach(7);
-  zoomServo.write(90);
+  zoomServo.write(0);
 
   while (!Serial) {
     delay(10);
