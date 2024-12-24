@@ -16,6 +16,9 @@ class FlaskYOLOTracker:
         self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
         self.width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.current_zoom = 0  # Add default zoom value
+        self.last_zoom_update = time.time()
+        self.zoom_update_interval = 0.1  # 100ms between zoom updates
         
         # Threading lock
         self.lock = Lock()
@@ -63,6 +66,16 @@ class FlaskYOLOTracker:
         self.gimbal.run_homing() # this blocks until homing is complete        
         self.is_initialized = True
     
+    def update_zoom(self, zoom_angle):
+        """Utility method to update zoom without changing velocity"""
+        with self.lock:
+            self.current_zoom = zoom_angle
+            self.gimbal.set_velocity(
+                self.gimbal.velocity.pan,
+                self.gimbal.velocity.tilt,
+                zoom_angle
+            )
+
     def detect_objects(self, frame):
         """Run YOLO detection on frame"""
         results = self.model(frame, stream=True, verbose=False)
@@ -164,10 +177,19 @@ class FlaskYOLOTracker:
                 
             self.draw_tracking_info(frame, box, confidence, target_position, self.target_class)
         else:
-            # Check for manual control timeout
-            if time.time() - self.last_manual_command_time > self.manual_timeout:
+            # Check for manual control timeout and zoom updates
+            current_time = time.time()
+            
+            # Handle movement timeout
+            if current_time - self.last_manual_command_time > self.manual_timeout:
                 with self.lock:
-                    self.gimbal.set_velocity(0, 0, self.gimbal.position.zoom)  # Stop movement if no recent commands
+                    # Update velocity to 0 but maintain current zoom
+                    self.gimbal.set_velocity(0, 0, self.current_zoom)
+            
+            # Update zoom periodically even when not moving
+            if current_time - self.last_zoom_update > self.zoom_update_interval:
+                self.update_zoom(self.current_zoom)
+                self.last_zoom_update = current_time
         
         # Draw system status
         status_text = "TRACKING MODE" if self.is_tracking_enabled else "MANUAL MODE"
@@ -181,7 +203,9 @@ class FlaskYOLOTracker:
     def handle_manual_control(self, x_velocity, y_velocity, zoom_angle=None):
         """Handle manual control inputs with integrated zoom"""
         with self.lock:
-            self.gimbal.set_velocity(x_velocity, y_velocity, zoom_angle)
+            if zoom_angle is not None:
+                self.current_zoom = zoom_angle
+            self.gimbal.set_velocity(x_velocity, y_velocity, self.current_zoom)
             self.last_manual_command_time = time.time()
 
 # Initialize tracker
@@ -276,29 +300,26 @@ def gimbal_position():
         'tilt': tracker.gimbal.position.tilt
     })
 
-# @app.route('/set_zoom', methods=['POST'])
-# def set_zoom():
-#     """Set the zoom angle"""
-#     try:
-#         data = request.get_json()
-#         zoom_angle = float(data['angle'])
+@app.route('/update_zoom', methods=['POST'])
+def update_zoom():
+    """Update zoom value without changing movement"""
+    try:
+        data = request.get_json()
+        zoom_angle = float(data['angle'])
         
-#         # Send zoom command using current pan/tilt velocity
-#         tracker.gimbal.set_velocity(
-#             tracker.gimbal.velocity.pan,
-#             tracker.gimbal.velocity.tilt,
-#             zoom_angle
-#         )
-        
-#         return jsonify({
-#             'status': 'success',
-#             'message': f'Zoom set to {zoom_angle}°'
-#         })
-#     except Exception as e:
-#         return jsonify({
-#             'status': 'error',
-#             'message': str(e)
-#         })
+        if not tracker.is_tracking_enabled:  # Only update zoom in manual mode
+            tracker.current_zoom = zoom_angle  # Update stored zoom value
+            tracker.update_zoom(zoom_angle)   # Send zoom command
+            
+        return jsonify({
+            'status': 'success',
+            'message': f'Zoom updated to {zoom_angle}°'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 @app.route('/get_zoom')
 def get_zoom():

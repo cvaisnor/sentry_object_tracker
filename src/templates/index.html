@@ -182,8 +182,8 @@
             <div class="zoom-control">
                 <h3>Zoom Control</h3>
                 <input type="range" id="zoomSlider" class="zoom-slider" 
-                        min="0" max="180" value="90" step="1">
-                <div class="zoom-value">Zoom: <span id="zoomValue">90</span>°</div>
+                        min="0" max="140" value="0" step="1">
+                <div class="zoom-value">Zoom: <span id="zoomValue">0</span>°</div>
             </div>
         </div>
         
@@ -384,8 +384,26 @@
             .catch(error => {
                 console.error('Error sending command:', error);
                 throw error;
+            });
+        }
+
+        zoomSlider.addEventListener('input', function() {
+        zoomValue.textContent = this.value;
+        currentZoom = parseFloat(this.value);
+        
+        // Send zoom update independently of joystick position
+        if (!isTracking) {
+            fetch('/update_zoom', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    angle: currentZoom
+                })
+            }).catch(error => console.error('Error:', error));
+        }
         });
-}
 
         // Initialize on page load
         window.addEventListener('load', async () => {
