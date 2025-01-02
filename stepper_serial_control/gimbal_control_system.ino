@@ -28,10 +28,10 @@ const int VELOCITY_TO_DISTANCE = 1000; // How far to move based on velocity (adj
 // System state
 unsigned long lastCommandTime = 0;     // Timestamp of last received command
 unsigned long lastFeedbackTime = 0;    // Timestamp of last position feedback
-bool isHomed = false;                 // Whether the system has been homed
-long panRange = 0;                    // Total range of pan motion
-long tiltRange = 0;                   // Total range of tilt motion
-bool isHoming = false;                // Whether currently in homing sequence
+bool isAtPanMin = false;              // At pan minimum endstop
+bool isAtPanMax = false;              // At pan maximum endstop
+bool isAtTiltMin = false;             // At tilt minimum endstop
+bool isAtTiltMax = false;             // At tilt maximum endstop
 
 // Communication buffer
 const int BUFFER_SIZE = 4;
@@ -41,8 +41,7 @@ int bufferIndex = 0;
 // Command types
 enum CommandType {
   CMD_VELOCITY = 0,
-  CMD_HOME = 1,
-  CMD_NEUTRAL = 2
+  CMD_NEUTRAL = 1
 };
 
 void setup() {
@@ -56,7 +55,7 @@ void setup() {
   pinMode(PAN_LIMIT_PIN, INPUT_PULLUP);
   pinMode(TILT_LIMIT_PIN, INPUT_PULLUP);
   
-  // Attach servo to pin 7
+  // Attach servo to pin 9
   zoomServo.attach(7);
   zoomServo.write(0);
 
@@ -71,164 +70,30 @@ void configureStepper(AccelStepper &stepper) {
   stepper.setCurrentPosition(0);
 }
 
-bool performHoming() {
-  static int homingState = 0;
-  static unsigned long homingStartTime = 0;
-  
-  if (homingState == 0) {
-    // Start homing sequence
-    homingStartTime = millis();
-    panStepper.setSpeed(-HOMING_SPEED);
-    tiltStepper.setSpeed(-HOMING_SPEED);
-    homingState = 1;
-    return false;
-  }
-  
-  // Check for timeout
-  if (millis() - homingStartTime > 45000) {  // 45 second timeout
-    homingState = 0;
-    isHoming = false;
-    return false;
-  }
-  
-  switch(homingState) {
-    case 1:  // Moving to min positions
-      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
-        panStepper.setSpeed(0);
-      }
-      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
-        tiltStepper.setSpeed(0);
-      }
-      if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-        delay(100);  // Small delay to ensure we're stable at the limit
-        panStepper.setCurrentPosition(0);
-        tiltStepper.setCurrentPosition(0);
-        panStepper.setSpeed(HOMING_SPEED/2); // switch directions to move off the endstops slowly
-        tiltStepper.setSpeed(HOMING_SPEED/2);
-        homingState++;
-      }
-      break;
-
-    case 2:  // move off the endstops
-      if (digitalRead(PAN_LIMIT_PIN) == HIGH) {
-        panStepper.setSpeed(HOMING_SPEED); // Resume full speed once off limit
-      }
-      if (digitalRead(TILT_LIMIT_PIN) == HIGH) {
-        tiltStepper.setSpeed(HOMING_SPEED);
-      }
-      if (panStepper.speed() == (HOMING_SPEED) && tiltStepper.speed() == (HOMING_SPEED)) {
-        homingState++;
-      }
-      break;
-    
-    case 3: // move to the max positions
-      if (digitalRead(PAN_LIMIT_PIN) == LOW) {
-        panStepper.setSpeed(0);
-      }
-      if (digitalRead(TILT_LIMIT_PIN) == LOW) {
-        tiltStepper.setSpeed(0);
-      }
-      if (panStepper.speed() == 0 && tiltStepper.speed() == 0) {
-        delay(100); // Small delay to ensure we're stable at the limit
-        panRange = panStepper.currentPosition();  // Record the range at max limit
-        tiltRange = tiltStepper.currentPosition();  // Record the range at max limit
-
-        // Send Range information to Python
-        Serial.print("R:");
-        Serial.print(panRange);
-        Serial.print(",");
-        Serial.println(tiltRange);
-
-        // Calculate center positions
-        long panCenter = panRange / 2;
-        long tiltCenter = tiltRange / 2;
-        // Move to center positions
-        tiltStepper.setSpeed(-HOMING_SPEED);
-        panStepper.setSpeed(-HOMING_SPEED);
-        panStepper.moveTo(panCenter);
-        tiltStepper.moveTo(tiltCenter);
-        homingState++;
-      }
-      break;
-
-    case 4: // Moving to neutral positions
-      if (!panStepper.isRunning() && !tiltStepper.isRunning()) {
-        homingState = 0;
-        isHomed = true;
-        isHoming = false;
-        return true;
-      }
-      break;
-  }
-
-  // Run the steppers
-  if (homingState == 4) {
-    // Use position mode for final centering
-    panStepper.run();
-    tiltStepper.run(); // dynamic
-  } else {
-    // Use constant speed mode for homing
-    panStepper.runSpeed(); // constant
-    tiltStepper.runSpeed();
-  }
-
-  return false;
-}
-
 void moveToNeutral() {
-  if (!isHomed) return;
-  
-  long panTarget = panRange / 2;
-  long tiltTarget = tiltRange / 2;
-  
-  // Debug output
-  // Serial.print("Moving to neutral - Pan target: ");
-  // Serial.print(panTarget);
-  // Serial.print(" Tilt target: ");
-  // Serial.println(tiltTarget);
-  
-  panStepper.moveTo(panTarget);
-  tiltStepper.moveTo(tiltTarget);
+  panStepper.moveTo(0);
+  tiltStepper.moveTo(0);
 }
 
 // Function to convert velocity command to position target
-void velocityToPosition(float velocity, AccelStepper &stepper, long rangeLimit) {
-  if (!isHomed) return;
-  
-  // Debug velocity input
-  // Serial.print("Processing velocity: ");
-  // Serial.println(velocity);
-  
+void velocityToPosition(float velocity, AccelStepper &stepper, bool isMin, bool isMax) {
   if (abs(velocity) < 1.0) {
     stepper.stop();
     return;
   }
   
-  // Get current position
-  long currentPos = stepper.currentPosition();
+  // Check endstops - prevent movement in blocked directions
+  if ((velocity < 0 && isMin) || (velocity > 0 && isMax)) {
+    stepper.stop();
+    return;
+  }
   
   // Calculate move distance based on velocity
-  // Increase VELOCITY_TO_DISTANCE if movement is too slow
   long moveDistance = (abs(velocity) / MAX_SPEED) * VELOCITY_TO_DISTANCE;
   
   // Set direction based on velocity sign
-  long newTarget;
-  if (velocity > 0) {
-    newTarget = currentPos + moveDistance;
-  } else {
-    newTarget = currentPos - moveDistance;
-  }
-  
-  // Constrain to valid range (0 to rangeLimit)
-  if (rangeLimit > 0) {
-    newTarget = constrain(newTarget, 200, rangeLimit-200);
-  }
-  
-  // Debug target position
-  // Serial.print("Current pos: ");
-  // Serial.print(currentPos);
-  // Serial.print(" New target: ");
-  // Serial.println(newTarget);
+  long currentPos = stepper.currentPosition();
+  long newTarget = velocity > 0 ? currentPos + moveDistance : currentPos - moveDistance;
   
   // Set movement speed based on velocity magnitude
   float speed = abs(velocity);
@@ -243,39 +108,19 @@ void processVelocityCommand(uint8_t panByte, uint8_t tiltByte) {
   float panVelocity = (((int)panByte - 128) / 127.0) * MAX_SPEED;
   float tiltVelocity = (((int)tiltByte - 128) / 127.0) * MAX_SPEED;
   
-  // Debug output
-  // Serial.print("Received command bytes - Pan: ");
-  // Serial.print(panByte);
-  // Serial.print(" Tilt: ");
-  // Serial.println(tiltByte);
-  
-  // Serial.print("Converted velocities - Pan: ");
-  // Serial.print(panVelocity);
-  // Serial.print(" Tilt: ");
-  // Serial.println(tiltVelocity);
-  
-  velocityToPosition(panVelocity, panStepper, panRange);
-  velocityToPosition(tiltVelocity, tiltStepper, tiltRange);
+  velocityToPosition(panVelocity, panStepper, isAtPanMin, isAtPanMax);
+  velocityToPosition(tiltVelocity, tiltStepper, isAtTiltMin, isAtTiltMax);
 }
 
 void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2, uint8_t data3) {
-  
   switch(cmd) {
     case CMD_VELOCITY:
-      if (!isHoming) {
-        processVelocityCommand(data1, data2);
-        processZoomServo(data3);
-      }
-      break;
-      
-    case CMD_HOME:
-      isHoming = true;
+      processVelocityCommand(data1, data2);
+      processZoomServo(data3);
       break;
       
     case CMD_NEUTRAL:
-      if (!isHoming) {
-        moveToNeutral();
-      }
+      moveToNeutral();
       break;
   }
   lastCommandTime = millis();
@@ -284,13 +129,6 @@ void processCommand(uint8_t cmd, uint8_t data1, uint8_t data2, uint8_t data3) {
 void processZoomServo(uint8_t zoomServoByte) {
   // Convert from byte (0-255) to angle (0-180)
   int angle = map(zoomServoByte, 0, 255, 0, 180);
-  
-  // Debug output
-  // Serial.print("Received zoom servo byte: ");
-  // Serial.print(zoomServoByte);
-  // Serial.print(" Angle: ");
-  // Serial.println(angle);
-  
   zoomServo.write(angle);
 }
 
@@ -331,44 +169,33 @@ void sendPositionFeedback() {
     Serial.print(tiltStepper.currentPosition());
     Serial.print(",Z:");
     Serial.print(zoomServo.read());
-    Serial.print(",H:");
-    Serial.println(isHomed ? 1 : 0);
-    
     lastFeedbackTime = millis();
   }
 }
 
-void loop() {
-  if (isHoming) {
-    performHoming();
-  } else {
-    processSerial();
-    
-    // Check endstops before running steppers
-    if (digitalRead(PAN_LIMIT_PIN) == LOW) {
-      // At limit - update position and stop
-      if (panStepper.speed() > 0) {
-        panStepper.setCurrentPosition(panRange);
-      } else if (panStepper.speed() < 0) {
-        panStepper.setCurrentPosition(0);
-      }
-      panStepper.stop();
-    }
-    
-    if (digitalRead(TILT_LIMIT_PIN) == LOW) {
-      // At limit - update position and stop
-      if (tiltStepper.speed() > 0) {
-        tiltStepper.setCurrentPosition(tiltRange);
-      } else if (tiltStepper.speed() < 0) {
-        tiltStepper.setCurrentPosition(0);
-      }
-      tiltStepper.stop();
-    }
-    
-    // Run steppers with acceleration
-    panStepper.run();
-    tiltStepper.run();
+void checkEndstops() {
+  // Update endstop states
+  isAtPanMin = digitalRead(PAN_LIMIT_PIN) == LOW && panStepper.speed() < 0;
+  isAtPanMax = digitalRead(PAN_LIMIT_PIN) == LOW && panStepper.speed() > 0;
+  isAtTiltMin = digitalRead(TILT_LIMIT_PIN) == LOW && tiltStepper.speed() < 0;
+  isAtTiltMax = digitalRead(TILT_LIMIT_PIN) == LOW && tiltStepper.speed() > 0;
+  
+  // Stop motion if at endstops
+  if (isAtPanMin || isAtPanMax) {
+    panStepper.stop();
   }
+  if (isAtTiltMin || isAtTiltMax) {
+    tiltStepper.stop();
+  }
+}
+
+void loop() {
+  processSerial();
+  checkEndstops();
+  
+  // Run steppers with acceleration
+  panStepper.run();
+  tiltStepper.run();
   
   sendPositionFeedback();
 }

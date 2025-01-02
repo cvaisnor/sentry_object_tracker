@@ -5,66 +5,68 @@ import time
 from threading import Lock
 import json
 from ultralytics import YOLO
+import numpy as np
 from gimbal_control_system import GimbalController
 
 app = Flask(__name__)
 
 class FlaskYOLOTracker:
     def __init__(self, camera_id=0, model_path="models/yolov8n.pt"):
-        # Initialize camera
-        self.camera = cv2.VideoCapture(camera_id)
-        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
-        self.width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.current_zoom = 0  # Add default zoom value
-        self.last_zoom_update = time.time()
-        self.zoom_update_interval = 0.1  # 100ms between zoom updates
+        # Default dimensions in case camera init fails
+        self.width = 1920
+        self.height = 1080  # Default height
+        self.camera = None
         
-        # Threading lock
-        self.lock = Lock()
+        try:
+            # Initialize camera
+            self.camera = cv2.VideoCapture(camera_id)
+            if self.camera.isOpened():
+                self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
+                self.width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+                self.height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                print(f"Camera initialized successfully: {self.width}x{self.height}")
+        except Exception as e:
+            print(f"Error initializing camera: {str(e)} - running in camera-less mode")
+            self.camera = None
         
-        # Initialize YOLO model
-        self.model = YOLO(model_path)
-        
-        # Initialize gimbal controller
-        self.gimbal = GimbalController()
-        
-        # System state
-        self.is_initialized = False
-        self.target_lost_time = None
-        self.return_to_neutral_delay = 3.0
-        self.is_tracking_enabled = True
-        self.target_class = 'cell phone' # Default target class``
-        
-
-        # Manual control state
-        self.last_manual_command_time = time.time()
-        self.manual_timeout = 0.1  # 100ms timeout for manual commands
-        
-        # YOLO class names
-        self.class_names = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
-                          "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-                          "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
-                          "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
-                          "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
-                          "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
-                          "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed",
-                          "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone",
-                          "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
-                          "teddy bear", "hair drier", "toothbrush"]
-        
-        self.font = cv2.FONT_HERSHEY_SIMPLEX
-        self.tracking_color = (255, 0, 255)
-        
-        # Initialize system
-        self.initialize_system()
-        
-    # Keep all your existing methods (initialize_system, detect_objects, find_target_object, etc.)
-    # Just remove the run() method as we'll handle the loop differently
-    def initialize_system(self):
-        """Initialize the system by homing the gimbal"""
-        self.gimbal.run_homing() # this blocks until homing is complete        
-        self.is_initialized = True
+        # Initialize other components
+        try:
+            self.current_zoom = 0
+            self.last_zoom_update = time.time()
+            self.zoom_update_interval = 0.1
+            self.lock = Lock()
+            self.model = YOLO(model_path)
+            self.gimbal = GimbalController()
+            
+            # System state
+            self.is_initialized = False
+            self.target_lost_time = None
+            self.return_to_neutral_delay = 3.0
+            self.is_tracking_enabled = False
+            self.target_class = 'cell phone'
+            
+            # Manual control state
+            self.last_manual_command_time = time.time()
+            self.manual_timeout = 0.1
+            
+            # Font and color settings
+            self.font = cv2.FONT_HERSHEY_SIMPLEX
+            self.tracking_color = (255, 0, 255)
+            
+            # YOLO class names
+            self.class_names = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
+                            "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
+                            "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
+                            "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
+                            "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
+                            "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
+                            "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed",
+                            "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone",
+                            "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
+                            "teddy bear", "hair drier", "toothbrush"]
+        except Exception as e:
+            print(f"Error initializing tracker components: {str(e)}")
+            raise  # Re-raise the exception if critical components fail
     
     def update_zoom(self, zoom_angle):
         """Utility method to update zoom without changing velocity"""
@@ -149,56 +151,85 @@ class FlaskYOLOTracker:
                      (self.width // 2 + deadzone, self.height // 2 + deadzone),
                      (0, 255, 0), 1)
     
-    def handle_target_loss(self):
-        """Handle behavior when target is lost"""
-        if self.target_lost_time is None:
-            self.target_lost_time = time.time()
-            # self.gimbal.set_velocity(0, 0)  # Stop movement
-        elif time.time() - self.target_lost_time >= self.return_to_neutral_delay:
-            # print("Target lost - returning to neutral position")
-            self.gimbal.move_to_neutral() # not blocking
+    # def handle_target_loss(self):
+    #     """Handle behavior when target is lost"""
+    #     if self.target_lost_time is None:
+    #         self.target_lost_time = time.time()
+    #         # self.gimbal.set_velocity(0, 0)  # Stop movement
+    #     # elif time.time() - self.target_lost_time >= self.return_to_neutral_delay:
+    #         # print("Target lost - returning to neutral position")
+    #         # self.gimbal.move_to_neutral() # not blocking
     
     def get_frame(self):
         """Get processed frame with tracking visualization"""
-        ret, frame = self.camera.read()
-        if not ret:
-            return None
+        try:
+            ret, frame = self.camera.read()
+            if not ret:
+                # Create a blank frame if camera read fails
+                frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+                cv2.putText(frame, 
+                        "No Camera Feed Available", 
+                        (self.width//4, self.height//2),
+                        self.font, 1, (0, 165, 255), 2)
 
-        if self.is_tracking_enabled:
-            boxes, confidences, class_ids = self.detect_objects(frame)
-            target_position, confidence, box = self.find_target_object(
-                boxes, confidences, class_ids, target_class=self.target_class)
-            
-            if target_position is not None:
-                with self.lock:
-                    self.gimbal.track_object(target_position, (self.width, self.height))
+            if self.is_tracking_enabled:
+                try:
+                    boxes, confidences, class_ids = self.detect_objects(frame)
+                    target_position, confidence, box = self.find_target_object(
+                        boxes, confidences, class_ids, target_class=self.target_class)
+                    
+                    if target_position is not None:
+                        with self.lock:
+                            self.gimbal.track_object(target_position, (self.width, self.height))
+                        
+                    self.draw_tracking_info(frame, box, confidence, target_position, self.target_class)
+                except Exception as e:
+                    print(f"Error in tracking: {str(e)}")
+                    # Disable tracking if there's an error
+                    self.is_tracking_enabled = False
             else:
-                self.handle_target_loss()
+                # Manual control logic
+                current_time = time.time()
                 
-            self.draw_tracking_info(frame, box, confidence, target_position, self.target_class)
-        else:
-            # Check for manual control timeout and zoom updates
-            current_time = time.time()
+                # Handle movement timeout
+                if current_time - self.last_manual_command_time > self.manual_timeout:
+                    with self.lock:
+                        self.gimbal.set_velocity(0, 0, self.current_zoom)
+                
+                # Update zoom periodically even when not moving
+                if current_time - self.last_zoom_update > self.zoom_update_interval:
+                    self.update_zoom(self.current_zoom)
+                    self.last_zoom_update = current_time
             
-            # Handle movement timeout
-            if current_time - self.last_manual_command_time > self.manual_timeout:
-                with self.lock:
-                    # Update velocity to 0 but maintain current zoom
-                    self.gimbal.set_velocity(0, 0, self.current_zoom)
+            # Draw system status
+            status_text = "TRACKING MODE" if self.is_tracking_enabled else "MANUAL MODE"
+            cv2.putText(frame, f"System: {status_text}", 
+                    (10, 30), self.font, 0.7, (0, 255, 0) if self.is_initialized else (0, 0, 255), 2)
             
-            # Update zoom periodically even when not moving
-            if current_time - self.last_zoom_update > self.zoom_update_interval:
-                self.update_zoom(self.current_zoom)
-                self.last_zoom_update = current_time
-        
-        # Draw system status
-        status_text = "TRACKING MODE" if self.is_tracking_enabled else "MANUAL MODE"
-        cv2.putText(frame, f"System: {status_text}", 
-                   (10, 30), self.font, 0.7, (0, 255, 0) if self.is_initialized else (0, 0, 255), 2)
-        
-        # Encode frame for streaming
-        ret, buffer = cv2.imencode('.jpg', frame)
-        return buffer.tobytes()
+            # Encode frame for streaming
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                raise Exception("Failed to encode frame")
+            return buffer.tobytes()
+
+        except Exception as e:
+            print(f"Error in get_frame: {str(e)}")
+            # Return a minimal error frame if everything fails
+            error_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(error_frame, 
+                    "System Error", 
+                    (220, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            ret, buffer = cv2.imencode('.jpg', error_frame)
+            return buffer.tobytes()
+
+        finally:
+            # Ensure manual control and zoom updates continue even if video fails
+            if not self.is_tracking_enabled:
+                current_time = time.time()
+                if current_time - self.last_manual_command_time > self.manual_timeout:
+                    with self.lock:
+                        self.gimbal.set_velocity(0, 0, self.current_zoom)
 
     def handle_manual_control(self, x_velocity, y_velocity, zoom_angle=None):
         """Handle manual control inputs with integrated zoom"""
